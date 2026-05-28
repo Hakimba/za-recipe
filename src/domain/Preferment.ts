@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { Percentage, PositivePercentage } from "./Brands.ts"
+import { Percentage } from "./Brands.ts"
 
 export const PrefermentType = Schema.Literal("biga", "poolish")
 export type PrefermentType = Schema.Schema.Type<typeof PrefermentType>
@@ -17,6 +17,6 @@ export const PREFERMENT_HYDRATION: Record<PrefermentType, number> = {
 export const PrefermentSpec = Schema.Struct({
   type: PrefermentType,
   flourPct: Percentage,
-  yeastPctOfPrefermentFlour: PositivePercentage,
+  yeastPctOfTotalYeast: Percentage,
 })
 export type PrefermentSpec = Schema.Schema.Type<typeof PrefermentSpec>

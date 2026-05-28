@@ -58,7 +58,7 @@ Quand tu changes le type de levure dans un champ rempli, l'app applique automati
 
 La biga est un preferment **toujours à 45% d'hydratation** dans cette app. Le sel, le sucre, l'huile et les ingrédients personnalisés sont **toujours placés dans le rafraîchis**, jamais dans le preferment.
 
-Soient $F$ le total de farine de la recette, $W$ le total d'eau, $Y$ le total de levure, $p$ le pourcentage de farine en biga (entré par l'utilisateur), $y_p$ le pourcentage de levure du préferment **calculé sur la farine du préferment** (convention boulangère standard).
+Soient $F$ le total de farine de la recette, $W$ le total d'eau, $Y$ le total de levure, $p$ le pourcentage de farine en biga (entré par l'utilisateur), $y$ le pourcentage **de la levure totale** qui va dans la biga (entré par l'utilisateur, entre 0 et 100).
 
 **Formules :**
 
@@ -66,24 +66,25 @@ $$
 \begin{aligned}
 \text{biga}_{\text{flour}} &= F \times \frac{p}{100} \\
 \text{biga}_{\text{water}} &= \text{biga}_{\text{flour}} \times 0{,}45 \\
-\text{biga}_{\text{yeast}} &= \text{biga}_{\text{flour}} \times \frac{y_p}{100} \\[6pt]
+\text{biga}_{\text{yeast}} &= Y \times \frac{y}{100} \\[6pt]
 \text{refresh}_{\text{flour}} &= F - \text{biga}_{\text{flour}} \\
 \text{refresh}_{\text{water}} &= W - \text{biga}_{\text{water}} \\
 \text{refresh}_{\text{yeast}} &= Y - \text{biga}_{\text{yeast}}
 \end{aligned}
 $$
 
-Si $\text{biga}_{\text{yeast}} > Y$, l'app refuse le calcul (le rafraîchis aurait une levure négative).
+Comme $y \in [0, 100]$, $\text{biga}_{\text{yeast}}$ ne peut jamais dépasser $Y$. L'app affiche aussi l'équivalent en pourcentage sur la farine du préferment, $y_{\text{eq}} = \frac{\text{biga}_{\text{yeast}}}{\text{biga}_{\text{flour}}} \times 100$, pour comparer avec les sources qui utilisent cette convention.
 
-**Exemple — Napoletana, 500 g de farine, 65% hydratation (325 g d'eau), 1.5 g de levure fraîche, 12.5 g de sel, biga à 50% de farine avec 0.3% de levure sur la farine de la biga :**
+**Exemple — Napoletana, 500 g de farine, 65% hydratation (325 g d'eau), 1.5 g de levure fraîche, 12.5 g de sel, biga à 50% de farine avec 50% de la levure totale :**
 
 - $\text{biga}_{\text{flour}} = 500 \times 0{,}50 = 250\ \text{g}$
 - $\text{biga}_{\text{water}} = 250 \times 0{,}45 = 112{,}5\ \text{g}$
-- $\text{biga}_{\text{yeast}} = 250 \times 0{,}003 = 0{,}75\ \text{g}$ (arrondi 0.8 g)
+- $\text{biga}_{\text{yeast}} = 1{,}5 \times 0{,}50 = 0{,}75\ \text{g}$ (arrondi 0.8 g)
 - $\text{refresh}_{\text{flour}} = 250\ \text{g}$
 - $\text{refresh}_{\text{water}} = 325 - 112{,}5 = 212{,}5\ \text{g}$
 - $\text{refresh}_{\text{yeast}} = 1{,}5 - 0{,}75 = 0{,}75\ \text{g}$ (arrondi 0.8 g)
 - $\text{refresh}_{\text{salt}} = 12{,}5\ \text{g}$
+- Équivalent affiché : $\frac{0{,}75}{250} \times 100 = 0{,}3\%$ sur la farine de la biga
 
 ---
 
@@ -97,22 +98,23 @@ $$
 \begin{aligned}
 \text{poolish}_{\text{flour}} &= F \times \frac{p}{100} \\
 \text{poolish}_{\text{water}} &= \text{poolish}_{\text{flour}} \times 1{,}00 \\
-\text{poolish}_{\text{yeast}} &= \text{poolish}_{\text{flour}} \times \frac{y_p}{100} \\[6pt]
+\text{poolish}_{\text{yeast}} &= Y \times \frac{y}{100} \\[6pt]
 \text{refresh}_{\text{flour}} &= F - \text{poolish}_{\text{flour}} \\
 \text{refresh}_{\text{water}} &= W - \text{poolish}_{\text{water}} \\
 \text{refresh}_{\text{yeast}} &= Y - \text{poolish}_{\text{yeast}}
 \end{aligned}
 $$
 
-**Exemple — même recette de base (500 g farine, 325 g eau, 1.5 g levure fraîche, 12.5 g sel), poolish à 30% de farine avec 0.2% de levure sur la farine du poolish :**
+**Exemple — même recette de base (500 g farine, 325 g eau, 1.5 g levure fraîche, 12.5 g sel), poolish à 30% de farine avec 25% de la levure totale :**
 
 - $\text{poolish}_{\text{flour}} = 500 \times 0{,}30 = 150\ \text{g}$
 - $\text{poolish}_{\text{water}} = 150 \times 1{,}00 = 150\ \text{g}$
-- $\text{poolish}_{\text{yeast}} = 150 \times 0{,}002 = 0{,}3\ \text{g}$
+- $\text{poolish}_{\text{yeast}} = 1{,}5 \times 0{,}25 = 0{,}375\ \text{g}$ (arrondi 0.4 g)
 - $\text{refresh}_{\text{flour}} = 350\ \text{g}$
 - $\text{refresh}_{\text{water}} = 325 - 150 = 175\ \text{g}$
-- $\text{refresh}_{\text{yeast}} = 1{,}5 - 0{,}3 = 1{,}2\ \text{g}$
+- $\text{refresh}_{\text{yeast}} = 1{,}5 - 0{,}375 = 1{,}125\ \text{g}$ (arrondi 1.1 g)
 - $\text{refresh}_{\text{salt}} = 12{,}5\ \text{g}$
+- Équivalent affiché : $\frac{0{,}375}{150} \times 100 = 0{,}25\%$ sur la farine du poolish
 
 ---
 
@@ -127,6 +129,8 @@ $$
 C'est le cas typique d'un poolish à 60% de farine sur une recette à 50% d'hydratation : $300 > 250\ \text{g}$ → impossible.
 
 Dans ce cas, baisse le pourcentage de farine en preferment ou augmente l'hydratation totale de la recette.
+
+Pour la levure, comme l'input est un pourcentage de la levure totale (borné 0 à 100), il n'y a aucun garde-fou nécessaire : le rafraîchis aura toujours une quantité positive ou nulle.
 
 ---
 

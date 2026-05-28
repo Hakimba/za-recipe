@@ -3,6 +3,18 @@ import { PrefermentExceedsRecipe, type DomainError } from "../domain/Errors.ts"
 import { PREFERMENT_HYDRATION, type PrefermentSpec } from "../domain/Preferment.ts"
 import type { YeastAmount } from "../domain/Yeast.ts"
 
+export const equivalentYeastPctOnPrefermentFlour = (params: {
+  readonly totalFlour: number
+  readonly totalYeast: number
+  readonly flourPct: number
+  readonly yeastPctOfTotalYeast: number
+}): Option.Option<number> => {
+  const prefermentFlour = params.totalFlour * (params.flourPct / 100)
+  if (prefermentFlour <= 0) return Option.none()
+  const prefermentYeast = params.totalYeast * (params.yeastPctOfTotalYeast / 100)
+  return Option.some((prefermentYeast / prefermentFlour) * 100)
+}
+
 const round1 = (value: number): number => Math.round(value * 10) / 10
 
 export type PrefermentPortion = {
@@ -45,7 +57,7 @@ export const splitWithPreferment = (
 
   const prefermentFlour = recipe.totalFlour * (spec.flourPct / 100)
   const prefermentWater = prefermentFlour * (hydration / 100)
-  const prefermentYeast = prefermentFlour * (spec.yeastPctOfPrefermentFlour / 100)
+  const prefermentYeast = recipe.totalYeast.grams * (spec.yeastPctOfTotalYeast / 100)
 
   if (prefermentWater > recipe.totalWater + 1e-6) {
     return Either.left(

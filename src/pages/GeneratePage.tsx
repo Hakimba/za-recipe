@@ -5,7 +5,6 @@ import type {
   Iso8601,
   Percentage,
   PositiveNumber,
-  PositivePercentage,
   RecipeId,
   Tag,
   TemplateId,
@@ -20,7 +19,11 @@ import {
 import type { Recipe } from "../domain/Recipe.ts"
 import type { Template } from "../domain/Template.ts"
 import { generateFromTemplate, type GeneratedRecipe } from "../calc/bakerPercent.ts"
-import { splitWithPreferment, type PrefermentSplit } from "../calc/prefermentSplit.ts"
+import {
+  equivalentYeastPctOnPrefermentFlour,
+  splitWithPreferment,
+  type PrefermentSplit,
+} from "../calc/prefermentSplit.ts"
 import { makeRecipeId, nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
 import { TemplateRepository } from "../persistence/TemplateRepository.ts"
@@ -52,7 +55,7 @@ export const GeneratePage = (): JSX.Element => {
   const [prefermentOn, setPrefermentOn] = useState(false)
   const [prefermentType, setPrefermentType] = useState<PrefermentType>("biga")
   const [flourPct, setFlourPct] = useState<number | "">(50)
-  const [yeastPct, setYeastPct] = useState<number | "">(0.5)
+  const [yeastPct, setYeastPct] = useState<number | "">(50)
 
   const templates = templatesState.status === "ready" ? templatesState.data : []
   const selected: Template | undefined = templates.find((t) => t.id === selectedId)
@@ -88,14 +91,15 @@ export const GeneratePage = (): JSX.Element => {
       yeastPct === "" ||
       flourPct < 0 ||
       flourPct > 100 ||
-      yeastPct <= 0
+      yeastPct < 0 ||
+      yeastPct > 100
     ) {
       return undefined
     }
     const spec: PrefermentSpec = {
       type: prefermentType,
       flourPct: flourPct as Percentage,
-      yeastPctOfPrefermentFlour: yeastPct as PositivePercentage,
+      yeastPctOfTotalYeast: yeastPct as Percentage,
     }
     return splitWithPreferment(
       {
@@ -134,7 +138,7 @@ export const GeneratePage = (): JSX.Element => {
             ? Option.some({
                 type: prefermentType,
                 flourPct: flourPct as Percentage,
-                yeastPctOfPrefermentFlour: yeastPct as PositivePercentage,
+                yeastPctOfTotalYeast: yeastPct as Percentage,
               })
             : Option.none()
         const recipe: Recipe = {
@@ -278,11 +282,23 @@ export const GeneratePage = (): JSX.Element => {
               />
             </FormField>
             <FormField
-              label="% de levure du préferment (sur la farine du préferment)"
-              hint="Si la levure ainsi calculée dépasse la levure totale, le rafraîchis sera à 0 g."
+              label="% de la levure totale dans le préferment"
+              hint="0 à 100. Ex : 50 = la moitié de la levure de la recette va dans le préferment."
             >
-              <NumberInput value={yeastPct} onChange={setYeastPct} step={0.05} min={0.01} />
+              <NumberInput
+                value={yeastPct}
+                onChange={setYeastPct}
+                step={1}
+                min={0}
+                max={100}
+              />
             </FormField>
+            <EquivalentPreview
+              totalFlour={generatedRecipe?.totalFlour}
+              totalYeast={generatedRecipe?.yeast.grams}
+              flourPct={flourPct}
+              yeastPct={yeastPct}
+            />
           </>
         ) : null}
       </Card>
@@ -333,6 +349,43 @@ export const GeneratePage = (): JSX.Element => {
       ) : null}
     </>
   )
+}
+
+const EquivalentPreview = ({
+  totalFlour,
+  totalYeast,
+  flourPct,
+  yeastPct,
+}: {
+  totalFlour: number | undefined
+  totalYeast: number | undefined
+  flourPct: number | ""
+  yeastPct: number | ""
+}): JSX.Element | null => {
+  if (
+    totalFlour === undefined ||
+    totalYeast === undefined ||
+    flourPct === "" ||
+    yeastPct === "" ||
+    flourPct <= 0 ||
+    yeastPct < 0
+  ) {
+    return null
+  }
+  const eq = equivalentYeastPctOnPrefermentFlour({
+    totalFlour,
+    totalYeast,
+    flourPct,
+    yeastPctOfTotalYeast: yeastPct,
+  })
+  return Option.match(eq, {
+    onNone: () => null,
+    onSome: (v) => (
+      <p className="text-xs text-stone-500 -mt-1">
+        ≈ {v.toFixed(3)}% de la farine du préferment
+      </p>
+    ),
+  })
 }
 
 const PrefermentError = ({ error }: { error: unknown }): JSX.Element => {
