@@ -76,7 +76,7 @@ export const FormField = ({
 export const TextInput = (props: InputBaseProps): JSX.Element => (
   <input
     {...props}
-    className="rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500 min-h-[44px]"
+    className="block w-full min-w-0 rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500 min-h-[44px]"
   />
 )
 
@@ -115,7 +115,7 @@ export const NumberInput = ({
       if (!Number.isFinite(n)) return
       onChange(n)
     }}
-    className="rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500 min-h-[44px]"
+    className="block w-full min-w-0 rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500 min-h-[44px]"
   />
 )
 
@@ -131,7 +131,7 @@ export const Select = <T extends string>({
   <select
     value={value}
     onChange={(e) => onChange(e.target.value as T)}
-    className="rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500 min-h-[44px]"
+    className="block w-full min-w-0 rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500 min-h-[44px]"
   >
     {options.map((o) => (
       <option key={o.value} value={o.value}>
