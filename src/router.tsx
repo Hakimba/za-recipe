@@ -28,7 +28,7 @@ const DocsRoute = (): JSX.Element => (
 const rootRoute = createRootRoute({
   component: () => (
     <>
-      <div className="min-h-dvh pb-20 max-w-screen-sm mx-auto px-4 pt-4">
+      <div className="min-h-dvh max-w-screen-sm mx-auto px-4 pb-24 pt-[calc(env(safe-area-inset-top)+1rem)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
         <Outlet />
       </div>
       <BottomNav />

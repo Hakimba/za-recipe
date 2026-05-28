@@ -210,7 +210,7 @@ export const RecipeDetailPage = (): JSX.Element => {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={4}
-            className="rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500"
+            className="block w-full min-w-0 rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500"
           />
         </FormField>
 
