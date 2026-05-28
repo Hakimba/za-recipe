@@ -52,7 +52,7 @@ export const GeneratePage = (): JSX.Element => {
   const [prefermentOn, setPrefermentOn] = useState(false)
   const [prefermentType, setPrefermentType] = useState<PrefermentType>("biga")
   const [flourPct, setFlourPct] = useState<number | "">(50)
-  const [yeastPct, setYeastPct] = useState<number | "">(10)
+  const [yeastPct, setYeastPct] = useState<number | "">(0.5)
 
   const templates = templatesState.status === "ready" ? templatesState.data : []
   const selected: Template | undefined = templates.find((t) => t.id === selectedId)
@@ -95,7 +95,7 @@ export const GeneratePage = (): JSX.Element => {
     const spec: PrefermentSpec = {
       type: prefermentType,
       flourPct: flourPct as Percentage,
-      yeastInPrefermentPct: yeastPct as PositivePercentage,
+      yeastPctOfPrefermentFlour: yeastPct as PositivePercentage,
     }
     return splitWithPreferment(
       {
@@ -134,7 +134,7 @@ export const GeneratePage = (): JSX.Element => {
             ? Option.some({
                 type: prefermentType,
                 flourPct: flourPct as Percentage,
-                yeastInPrefermentPct: yeastPct as PositivePercentage,
+                yeastPctOfPrefermentFlour: yeastPct as PositivePercentage,
               })
             : Option.none()
         const recipe: Recipe = {
@@ -278,10 +278,10 @@ export const GeneratePage = (): JSX.Element => {
               />
             </FormField>
             <FormField
-              label="% de levure dans le preferment"
-              hint="% du total de levure de la recette (souvent très bas)"
+              label="% de levure du préferment (sur la farine du préferment)"
+              hint="Si la levure ainsi calculée dépasse la levure totale, le rafraîchis sera à 0 g."
             >
-              <NumberInput value={yeastPct} onChange={setYeastPct} step={0.5} min={0.1} />
+              <NumberInput value={yeastPct} onChange={setYeastPct} step={0.05} min={0.01} />
             </FormField>
           </>
         ) : null}

@@ -45,7 +45,7 @@ export const splitWithPreferment = (
 
   const prefermentFlour = recipe.totalFlour * (spec.flourPct / 100)
   const prefermentWater = prefermentFlour * (hydration / 100)
-  const prefermentYeast = recipe.totalYeast.grams * (spec.yeastInPrefermentPct / 100)
+  const prefermentYeast = prefermentFlour * (spec.yeastPctOfPrefermentFlour / 100)
 
   if (prefermentWater > recipe.totalWater + 1e-6) {
     return Either.left(
