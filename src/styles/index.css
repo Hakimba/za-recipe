@@ -56,3 +56,18 @@
 .prose-pizza .katex-display {
   @apply my-3 overflow-x-auto;
 }
+
+/* KaTeX ships a MathML fallback for screen readers that visually shadows the
+ * rendered math when host CSS resets clip/position. Force-hide it. */
+.prose-pizza .katex-mathml,
+.katex .katex-mathml {
+  position: absolute !important;
+  clip: rect(1px, 1px, 1px, 1px) !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  border: 0 !important;
+  margin: -1px !important;
+  white-space: nowrap !important;
+}

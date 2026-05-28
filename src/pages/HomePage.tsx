@@ -19,8 +19,8 @@ const tiles: ReadonlyArray<Tile> = [
   {
     to: "/templates",
     emoji: "📐",
-    title: "Templates",
-    desc: "Gérer les baker's percentages",
+    title: "Templates de recette",
+    desc: "Via baker's percentages",
   },
   {
     to: "/library",
@@ -33,6 +33,12 @@ const tiles: ReadonlyArray<Tile> = [
     emoji: "📖",
     title: "Documentation",
     desc: "Méthodes de calcul utilisées",
+  },
+  {
+    to: "/backup",
+    emoji: "💾",
+    title: "Sauvegarde",
+    desc: "Export / import JSON de tes données",
   },
 ]
 

@@ -17,6 +17,6 @@ export const PREFERMENT_HYDRATION: Record<PrefermentType, number> = {
 export const PrefermentSpec = Schema.Struct({
   type: PrefermentType,
   flourPct: Percentage,
-  yeastInPrefermentPct: PositivePercentage,
+  yeastPctOfPrefermentFlour: PositivePercentage,
 })
 export type PrefermentSpec = Schema.Schema.Type<typeof PrefermentSpec>
