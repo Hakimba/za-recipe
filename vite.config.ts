@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react"
 import { VitePWA } from "vite-plugin-pwa"
 import path from "node:path"
 
-const repoBase = process.env.VITE_BASE ?? "/pizza-calculation-preferment/"
+const repoBase = process.env.VITE_BASE ?? "/za-recipe/"
 
 export default defineConfig({
   base: repoBase,
