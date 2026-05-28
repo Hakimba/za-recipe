@@ -13,6 +13,7 @@ import { TemplateEditPage } from "./pages/TemplateEditPage.tsx"
 import { GeneratePage } from "./pages/GeneratePage.tsx"
 import { LibraryPage } from "./pages/LibraryPage.tsx"
 import { RecipeDetailPage } from "./pages/RecipeDetailPage.tsx"
+import { BackupPage } from "./pages/BackupPage.tsx"
 
 const DocsPageLazy = lazy(() =>
   import("./pages/DocsPage.tsx").then((m) => ({ default: m.DocsPage })),
@@ -89,6 +90,12 @@ const docsRoute = createRoute({
   component: DocsRoute,
 })
 
+const backupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/backup",
+  component: BackupPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   directRoute,
@@ -99,6 +106,7 @@ const routeTree = rootRoute.addChildren([
   libraryRoute,
   recipeDetailRoute,
   docsRoute,
+  backupRoute,
 ])
 
 export const router = createRouter({

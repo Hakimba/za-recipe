@@ -1,12 +1,25 @@
 import { Link } from "@tanstack/react-router"
-import { Effect, Option } from "effect"
+import { Effect, Exit, Option } from "effect"
 import { useMemo, useState } from "react"
+import type { RecipeId } from "../domain/Brands.ts"
+import type { Recipe } from "../domain/Recipe.ts"
+import { nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
+import { runPromiseExit } from "../runtime/Runtime.ts"
 import { Button, Card, PageHeader, TextInput } from "../ui/primitives.tsx"
 import { useEffectQuery } from "../ui/hooks.ts"
 
+const toggleFavoriteEffect = (id: RecipeId) =>
+  Effect.gen(function* () {
+    const repo = yield* RecipeRepository
+    const maybe = yield* repo.get(id)
+    if (Option.isNone(maybe)) return
+    const now = (yield* nowIso) as Recipe["updatedAt"]
+    yield* repo.save({ ...maybe.value, favorite: !maybe.value.favorite, updatedAt: now })
+  })
+
 export const LibraryPage = (): JSX.Element => {
-  const { state } = useEffectQuery(
+  const { state, refetch } = useEffectQuery(
     () => Effect.flatMap(RecipeRepository, (r) => r.list),
     [],
   )
@@ -45,6 +58,11 @@ export const LibraryPage = (): JSX.Element => {
       )
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
   }, [recipes, search, favoritesOnly, selectedTags, minRating])
+
+  const onToggleFavorite = async (id: RecipeId): Promise<void> => {
+    const exit = await runPromiseExit(toggleFavoriteEffect(id))
+    if (Exit.isSuccess(exit)) refetch()
+  }
 
   return (
     <>
@@ -133,14 +151,11 @@ export const LibraryPage = (): JSX.Element => {
         <ul className="mt-4 grid gap-2">
           {filtered.map((r) => (
             <li key={r.id}>
-              <Link to="/library/$id" params={{ id: r.id }}>
-                <Card className="active:bg-dough-100">
-                  <div className="flex items-center justify-between gap-3">
+              <div className="relative">
+                <Link to="/library/$id" params={{ id: r.id }} className="block">
+                  <Card className="active:bg-dough-100 pr-12">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        {r.favorite ? <span>⭐</span> : null}
-                        <h2 className="font-semibold text-stone-800 truncate">{r.name}</h2>
-                      </div>
+                      <h2 className="font-semibold text-stone-800 truncate">{r.name}</h2>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {r.tags.map((t) => (
                           <span
@@ -151,20 +166,24 @@ export const LibraryPage = (): JSX.Element => {
                           </span>
                         ))}
                       </div>
-                    </div>
-                    <div className="text-right">
                       {Option.match(r.rating, {
-                        onNone: () => <span className="text-xs text-stone-400">—</span>,
+                        onNone: () => null,
                         onSome: (v) => (
-                          <span className="font-bold text-tomato-700">
-                            {(v as number).toFixed(1)}
-                          </span>
+                          <p className="mt-1 text-sm font-bold text-tomato-700">
+                            {(v as number).toFixed(1)} / 10
+                          </p>
                         ),
                       })}
                     </div>
-                  </div>
-                </Card>
-              </Link>
+                  </Card>
+                </Link>
+                <StarButton
+                  active={r.favorite}
+                  onClick={(): void => {
+                    void onToggleFavorite(r.id)
+                  }}
+                />
+              </div>
             </li>
           ))}
         </ul>
@@ -172,3 +191,25 @@ export const LibraryPage = (): JSX.Element => {
     </>
   )
 }
+
+const StarButton = ({
+  active,
+  onClick,
+}: {
+  active: boolean
+  onClick: () => void
+}): JSX.Element => (
+  <button
+    type="button"
+    aria-label={active ? "Retirer des favoris" : "Ajouter aux favoris"}
+    aria-pressed={active}
+    onClick={(e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      onClick()
+    }}
+    className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full text-xl bg-white/80 border border-dough-300 active:scale-95"
+  >
+    <span className={active ? "" : "grayscale opacity-40"}>{active ? "⭐" : "☆"}</span>
+  </button>
+)
