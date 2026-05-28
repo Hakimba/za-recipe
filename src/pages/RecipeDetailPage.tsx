@@ -2,7 +2,10 @@ import { useNavigate, useParams } from "@tanstack/react-router"
 import { Effect, Exit, Option } from "effect"
 import { useEffect, useState } from "react"
 import type { Rating, RecipeId, Tag } from "../domain/Brands.ts"
-import { splitWithPreferment } from "../calc/prefermentSplit.ts"
+import {
+  equivalentYeastPctOnPrefermentFlour,
+  splitWithPreferment,
+} from "../calc/prefermentSplit.ts"
 import type { Recipe } from "../domain/Recipe.ts"
 import { totalFlour } from "../domain/Recipe.ts"
 import { PrefermentTypeLabel } from "../domain/Preferment.ts"
@@ -129,9 +132,29 @@ export const RecipeDetailPage = (): JSX.Element => {
           <h3 className="font-semibold mb-2">
             {Option.match(r.preferment, {
               onNone: () => "Preferment",
-              onSome: (s) => `${PrefermentTypeLabel[s.type]} (${s.flourPct}% farine)`,
+              onSome: (s) =>
+                `${PrefermentTypeLabel[s.type]} (${s.flourPct}% farine · ${s.yeastPctOfTotalYeast}% levure)`,
             })}
           </h3>
+          {Option.match(r.preferment, {
+            onNone: () => null,
+            onSome: (s) => {
+              const eq = equivalentYeastPctOnPrefermentFlour({
+                totalFlour: tf,
+                totalYeast: r.yeast.grams,
+                flourPct: s.flourPct,
+                yeastPctOfTotalYeast: s.yeastPctOfTotalYeast,
+              })
+              return Option.match(eq, {
+                onNone: () => null,
+                onSome: (v) => (
+                  <p className="text-xs text-stone-500 mb-2">
+                    ≈ {v.toFixed(3)}% de la farine du préferment
+                  </p>
+                ),
+              })
+            },
+          })}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <h4 className="font-medium text-tomato-700 text-sm mb-1">Preferment</h4>
