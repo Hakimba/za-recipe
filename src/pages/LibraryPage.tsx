@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { Effect, Exit, Option } from "effect"
 import { useMemo, useState } from "react"
 import type { RecipeId } from "../domain/Brands.ts"
@@ -18,7 +18,19 @@ const toggleFavoriteEffect = (id: RecipeId) =>
     yield* repo.save({ ...maybe.value, favorite: !maybe.value.favorite, updatedAt: now })
   })
 
+const setTriedEffect = (id: RecipeId, tried: boolean) =>
+  Effect.gen(function* () {
+    const repo = yield* RecipeRepository
+    const maybe = yield* repo.get(id)
+    if (Option.isNone(maybe)) return
+    const now = (yield* nowIso) as Recipe["updatedAt"]
+    yield* repo.save({ ...maybe.value, tried, updatedAt: now })
+  })
+
+type TriedFilter = "all" | "tried" | "untried"
+
 export const LibraryPage = (): JSX.Element => {
+  const navigate = useNavigate()
   const { state, refetch } = useEffectQuery(
     () => Effect.flatMap(RecipeRepository, (r) => r.list),
     [],
@@ -26,6 +38,7 @@ export const LibraryPage = (): JSX.Element => {
 
   const [search, setSearch] = useState("")
   const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const [triedFilter, setTriedFilter] = useState<TriedFilter>("all")
   const [selectedTags, setSelectedTags] = useState<ReadonlyArray<string>>([])
   const [minRating, setMinRating] = useState<number | "">("")
 
@@ -44,6 +57,9 @@ export const LibraryPage = (): JSX.Element => {
       )
       .filter((r) => (favoritesOnly ? r.favorite : true))
       .filter((r) =>
+        triedFilter === "all" ? true : triedFilter === "tried" ? r.tried : !r.tried,
+      )
+      .filter((r) =>
         selectedTags.length === 0
           ? true
           : selectedTags.every((t) => r.tags.includes(t as (typeof r.tags)[number])),
@@ -57,11 +73,21 @@ export const LibraryPage = (): JSX.Element => {
             }),
       )
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
-  }, [recipes, search, favoritesOnly, selectedTags, minRating])
+  }, [recipes, search, favoritesOnly, triedFilter, selectedTags, minRating])
 
   const onToggleFavorite = async (id: RecipeId): Promise<void> => {
     const exit = await runPromiseExit(toggleFavoriteEffect(id))
     if (Exit.isSuccess(exit)) refetch()
+  }
+
+  // Marking "tried" sends you to the recipe to rate it / write notes;
+  // un-marking just updates the flag.
+  const onToggleTried = async (id: RecipeId, current: boolean): Promise<void> => {
+    const exit = await runPromiseExit(setTriedEffect(id, !current))
+    if (Exit.isSuccess(exit)) {
+      if (!current) navigate({ to: "/library/$id", params: { id } })
+      else refetch()
+    }
   }
 
   return (
@@ -84,6 +110,20 @@ export const LibraryPage = (): JSX.Element => {
             }`}
           >
             ⭐ Favoris
+          </button>
+          <button
+            onClick={() =>
+              setTriedFilter(
+                triedFilter === "all" ? "tried" : triedFilter === "tried" ? "untried" : "all",
+              )
+            }
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border ${
+              triedFilter !== "all"
+                ? "bg-basil-500 text-white border-basil-500"
+                : "bg-white text-stone-700 border-dough-300"
+            }`}
+          >
+            🍕 {triedFilter === "tried" ? "Essayées" : triedFilter === "untried" ? "Non essayées" : "Essayées ?"}
           </button>
           <label className="flex items-center gap-1 text-xs text-stone-700">
             Note ≥
@@ -153,9 +193,12 @@ export const LibraryPage = (): JSX.Element => {
             <li key={r.id}>
               <div className="relative">
                 <Link to="/library/$id" params={{ id: r.id }} className="block">
-                  <Card className="active:bg-dough-100 pr-12">
+                  <Card className="active:bg-dough-100 pr-24">
                     <div className="min-w-0">
-                      <h2 className="font-semibold text-stone-800 truncate">{r.name}</h2>
+                      <div className="flex items-center gap-2">
+                        {r.tried ? <span title="Essayée">🍕</span> : null}
+                        <h2 className="font-semibold text-stone-800 truncate">{r.name}</h2>
+                      </div>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {r.tags.map((t) => (
                           <span
@@ -177,6 +220,12 @@ export const LibraryPage = (): JSX.Element => {
                     </div>
                   </Card>
                 </Link>
+                <TriedButton
+                  active={r.tried}
+                  onClick={(): void => {
+                    void onToggleTried(r.id, r.tried)
+                  }}
+                />
                 <StarButton
                   active={r.favorite}
                   onClick={(): void => {
@@ -211,5 +260,27 @@ const StarButton = ({
     className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full text-xl bg-white/80 border border-dough-300 active:scale-95"
   >
     <span className={active ? "" : "grayscale opacity-40"}>{active ? "⭐" : "☆"}</span>
+  </button>
+)
+
+const TriedButton = ({
+  active,
+  onClick,
+}: {
+  active: boolean
+  onClick: () => void
+}): JSX.Element => (
+  <button
+    type="button"
+    aria-label={active ? "Marquer comme non essayée" : "Je l'ai essayée"}
+    aria-pressed={active}
+    onClick={(e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      onClick()
+    }}
+    className="absolute top-3 right-14 w-9 h-9 flex items-center justify-center rounded-full text-lg bg-white/80 border border-dough-300 active:scale-95"
+  >
+    <span className={active ? "" : "grayscale opacity-40"}>🍕</span>
   </button>
 )

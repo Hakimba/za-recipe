@@ -166,6 +166,7 @@ export const GeneratePage = (): JSX.Element => {
             .map((t) => t.trim())
             .filter((t) => t !== "") as unknown as ReadonlyArray<Tag>,
           favorite: false,
+          tried: false,
           rating: Option.none(),
           notes: Option.none(),
           createdAt: now,

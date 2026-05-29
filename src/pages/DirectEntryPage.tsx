@@ -108,6 +108,7 @@ export const DirectEntryPage = (): JSX.Element => {
             .map((t) => t.trim())
             .filter((t) => t !== "") as unknown as ReadonlyArray<Tag>,
           favorite: s.favorite,
+          tried: false,
           rating: Option.none(),
           notes: s.notes.trim() === "" ? Option.none() : Option.some(s.notes.trim()),
           createdAt: now,

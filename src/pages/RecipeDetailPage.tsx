@@ -30,6 +30,7 @@ export const RecipeDetailPage = (): JSX.Element => {
   const [notes, setNotes] = useState("")
   const [tagInput, setTagInput] = useState("")
   const [favorite, setFavorite] = useState(false)
+  const [tried, setTried] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loadedFor, setLoadedFor] = useState<string>("")
 
@@ -40,6 +41,7 @@ export const RecipeDetailPage = (): JSX.Element => {
       setNotes(Option.getOrElse(r.notes, () => ""))
       setTagInput(r.tags.join(", "))
       setFavorite(r.favorite)
+      setTried(r.tried)
       setLoadedFor(r.id)
     }
   }, [state, loadedFor])
@@ -59,6 +61,7 @@ export const RecipeDetailPage = (): JSX.Element => {
         const updated: Recipe = {
           ...r,
           favorite,
+          tried,
           rating: rating === "" ? Option.none() : Option.some(rating as Rating),
           notes: notes.trim() === "" ? Option.none() : Option.some(notes.trim()),
           tags: tagInput
@@ -223,6 +226,16 @@ export const RecipeDetailPage = (): JSX.Element => {
             </Button>
           ) : null}
         </FormField>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={tried}
+            onChange={(e) => setTried(e.target.checked)}
+            className="w-5 h-5"
+          />
+          <span>Je l'ai essayée 🍕</span>
+        </label>
 
         <label className="flex items-center gap-2 text-sm">
           <input

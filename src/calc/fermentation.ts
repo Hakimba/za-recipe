@@ -80,9 +80,11 @@ export const deriveYeast = (
     return Either.left(new FermentationUnreachable({ kind: "underfermented" }))
   }
 
-  // °C↔°F rounding (e.g. 26.7 °C = 80.06 °F) can land just outside the integer
-  // °F grid; clamp within one grid step, error only beyond that.
-  const TOLERANCE_F = 1
+  // °C↔°F rounding (e.g. 26.7 °C = 80.06 °F) can land a hair outside the °F
+  // grid; clamp that, but reject anything clearly out of the table with a
+  // friendly error (kept tight so it never accepts a temp the Celsius brand
+  // would later reject at encode).
+  const TOLERANCE_F = 0.5
   const phasesF: PhaseF[] = []
   for (let i = 0; i < phases.length; i++) {
     const raw = celsiusToF(phases[i]!.temperatureC)

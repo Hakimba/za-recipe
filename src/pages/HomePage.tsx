@@ -44,7 +44,7 @@ const tiles: ReadonlyArray<Tile> = [
 
 export const HomePage = (): JSX.Element => (
   <>
-    <PageHeader title="Pizza Preferment" subtitle="Compagnon de recettes pizza" />
+    <PageHeader title="Za recipe" subtitle="Compagnon de recettes pizza" />
     <div className="grid grid-cols-1 gap-3">
       {tiles.map((t) => (
         <Link key={t.to} to={t.to} className="block">

@@ -74,6 +74,11 @@ describe("legacy decode — Recipe", () => {
     expect(r.yeast.amount.grams).toBe(1.5)
   })
 
+  it("defaults the new `tried` flag to false for legacy records", () => {
+    const r = decodeRecipe(legacyRecipeJson)
+    expect(r.tried).toBe(false)
+  })
+
   it("leaves a modern recipe untouched", () => {
     const modern = {
       ...legacyRecipeJson,

@@ -221,7 +221,9 @@ export const FermentationProtocolEditor = ({
                   value={displayTemp(p.temperatureC)}
                   onChange={(v) => setPhase(i, { temperatureC: storeTemp(v) })}
                   step={draft.unit === "F" ? 1 : 0.5}
-                  placeholder={draft.unit === "F" ? "°F" : "°C"}
+                  min={draft.unit === "F" ? 35 : 1.7}
+                  max={draft.unit === "F" ? 80 : 26.7}
+                  placeholder={draft.unit === "F" ? "35–80 °F" : "1.7–26.7 °C"}
                 />
                 <NumberInput
                   value={p.hours}

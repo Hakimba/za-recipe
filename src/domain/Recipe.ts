@@ -17,6 +17,7 @@ export const Recipe = Schema.Struct({
   preferment: Schema.OptionFromNullishOr(PrefermentSpec, null),
   tags: Schema.Array(Tag),
   favorite: Schema.Boolean,
+  tried: Schema.optionalWith(Schema.Boolean, { default: () => false, nullable: true }),
   rating: Schema.OptionFromNullishOr(Rating, null),
   notes: Schema.OptionFromNullishOr(Schema.String, null),
   createdAt: Iso8601,
