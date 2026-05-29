@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import type { TemplateId } from "../domain/Brands.ts"
-import { Template } from "../domain/Template.ts"
+import { normalizeLegacyTemplate, Template } from "../domain/Template.ts"
 import { openPizzaDB, TEMPLATES_STORE, type DB } from "./db.ts"
 import { RepoError } from "./RepoError.ts"
 
@@ -15,7 +15,8 @@ export class TemplateRepository extends Context.Tag("TemplateRepository")<
 >() {}
 
 const encodeTemplate = Schema.encode(Template)
-const decodeTemplate = Schema.decodeUnknown(Template)
+const decodeTemplateSchema = Schema.decodeUnknown(Template)
+const decodeTemplate = (raw: unknown) => decodeTemplateSchema(normalizeLegacyTemplate(raw))
 
 const toRepoError =
   (op: string) =>

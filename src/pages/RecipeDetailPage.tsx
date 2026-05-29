@@ -1,13 +1,16 @@
 import { useNavigate, useParams } from "@tanstack/react-router"
-import { Effect, Exit, Option } from "effect"
+import { Effect, Either, Exit, Option } from "effect"
 import { useEffect, useState } from "react"
-import type { Rating, RecipeId, Tag } from "../domain/Brands.ts"
+import type { PositiveNumber, Rating, RecipeId, Tag } from "../domain/Brands.ts"
 import {
   equivalentYeastPctOnPrefermentFlour,
   splitWithPreferment,
 } from "../calc/prefermentSplit.ts"
+import { deriveYeastDefault } from "../calc/fermentation.ts"
+import { resolveRecipeYeast } from "../calc/resolveYeast.ts"
 import type { Recipe } from "../domain/Recipe.ts"
 import { totalFlour } from "../domain/Recipe.ts"
+import { celsiusToF } from "../domain/Fermentation.ts"
 import { PrefermentTypeLabel } from "../domain/Preferment.ts"
 import { nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
@@ -82,6 +85,12 @@ export const RecipeDetailPage = (): JSX.Element => {
 
   const tf = totalFlour(r.flours)
 
+  const resolvedYeast = resolveRecipeYeast(r.yeast, tf)
+  const yeastAmount = Either.getOrElse(resolvedYeast, () => ({
+    type: r.yeast._tag === "Manual" ? r.yeast.amount.type : r.yeast.type,
+    grams: 0 as PositiveNumber,
+  }))
+
   const splitDisplay = Option.match(r.preferment, {
     onNone: () => null,
     onSome: (spec) =>
@@ -89,7 +98,7 @@ export const RecipeDetailPage = (): JSX.Element => {
         {
           totalFlour: tf,
           totalWater: r.water,
-          totalYeast: r.yeast,
+          totalYeast: yeastAmount,
           salt: r.salt,
           sugar: r.sugar,
           oliveOil: r.oliveOil,
@@ -109,7 +118,7 @@ export const RecipeDetailPage = (): JSX.Element => {
           <Row key={i} label={f.name} value={`${f.grams} g`} />
         ))}
         <Row label="Eau" value={`${r.water} g`} />
-        <Row label={`Levure (${labelYeast(r.yeast.type)})`} value={`${r.yeast.grams} g`} />
+        <Row label={`Levure (${labelYeast(yeastAmount.type)})`} value={`${yeastAmount.grams} g`} />
         {Option.match(r.salt, {
           onNone: () => null,
           onSome: (v) => <Row label="Sel" value={`${v} g`} />,
@@ -127,6 +136,30 @@ export const RecipeDetailPage = (): JSX.Element => {
         ))}
       </Card>
 
+      {r.yeast._tag === "Protocol" ? (
+        <Card className="mt-3">
+          <h3 className="font-semibold mb-2">Protocole de fermentation</h3>
+          <ul className="text-sm">
+            {r.yeast.phases.map((p, i) => (
+              <Row
+                key={i}
+                label={`Phase ${i + 1}`}
+                value={`${p.hours} h à ${p.temperatureC} °C (${Math.round(celsiusToF(p.temperatureC))} °F)`}
+              />
+            ))}
+          </ul>
+          {Either.match(deriveYeastDefault((r.yeast as { type: typeof yeastAmount.type }).type, r.yeast.phases), {
+            onLeft: () => null,
+            onRight: (d) => (
+              <p className="text-xs text-stone-600 mt-2">
+                Levure dérivée : {d.pct.toFixed(3)} % · part par phase :{" "}
+                {d.phaseFractions.map((f, i) => `P${i + 1} ${Math.round(f * 100)}%`).join(" · ")}
+              </p>
+            ),
+          })}
+        </Card>
+      ) : null}
+
       {splitDisplay !== null && splitDisplay._tag === "Right" ? (
         <Card className="mt-3">
           <h3 className="font-semibold mb-2">
@@ -141,7 +174,7 @@ export const RecipeDetailPage = (): JSX.Element => {
             onSome: (s) => {
               const eq = equivalentYeastPctOnPrefermentFlour({
                 totalFlour: tf,
-                totalYeast: r.yeast.grams,
+                totalYeast: yeastAmount.grams,
                 flourPct: s.flourPct,
                 yeastPctOfTotalYeast: s.yeastPctOfTotalYeast,
               })

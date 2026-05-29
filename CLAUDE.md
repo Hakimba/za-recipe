@@ -99,11 +99,23 @@ A pure helper `equivalentYeastPctOnPrefermentFlour` derives the equivalent `pref
 
 The only failure mode is `PrefermentExceedsRecipe.water` (poolish needs more water than the recipe has). Yeast cannot exceed by construction (input is bounded 0–100 of total yeast).
 
+## Fermentation-protocol feature (shipped on `feature/fermentation-protocol`)
+
+Yeast in a Template (`yeast: TemplateYeast`) and a direct Recipe (`yeast: RecipeYeast`) is a **tagged union**: `Manual` (a baker's % / gram amount) or `Protocol` (an ordered list of ≥1 `{ temperatureC, hours }` phases from which the yeast is derived). Modeled in `src/domain/Yeast.ts`. Old stored records (flat `yeastType`/`yeastPct`, or a bare `YeastAmount`) decode to `Manual` via `normalizeLegacyTemplate` / `normalizeLegacyRecipe` (applied in the repos + `Backup.ts`) — no DB version bump.
+
+Based on **TXCraig1's yeast-prediction table** (pizzamaking.com). Source: `assets/bareme_fermentation_etendu_corrige.xlsx` (+ `.csv`); full methodology with worked examples in `assets/fermentation-model.md`. The table is generated into `src/domain/FermentationTable.ts` by `scripts/generate-fermentation-table.mjs` (`npm run fermentation-table`).
+
+- Table `F(temp, yeast)` = hours to full fermentation. Rows = temp (35–80 °F integer grid). Columns = yeast in CY/ADY/IDY (CY 0.1 % = ADY 0.042 % = IDY 0.032 %).
+- **The one law** ("100 % tank"): `Σ_i hours_i / F(temp_i, yeast) = 1`. Solver lives in `src/calc/fermentation.ts` (`deriveYeast`: full interpolation — temp on the °F grid, yeast at the fraction=1 crossing). `src/calc/resolveYeast.ts` turns a `TemplateYeast`/`RecipeYeast` into a concrete %/grams; `generateFromTemplate` uses it.
+- Errors: `FermentationTempOutOfRange`, `FermentationUnreachable{under|overfermented}` (in `Errors.ts`).
+- UI: shared controlled `src/ui/FermentationProtocolEditor.tsx` (Manual/Protocol toggle, °C/°F unit, live derived value + per-phase %), used by TemplateEditPage and DirectEntryPage.
+- **Scope limit (current):** protocol derivation is only for templates/direct recipes **without preferment**. On GeneratePage, a protocol template **disables** the preferment section with a notice. Don't lift this without deciding the protocol×preferment semantics.
+
 ## What NOT to do
 
 - **Don't use `null`/`undefined`** anywhere. Use `Option`. (See coding style above.)
 - **Don't throw.** Return `Either`/`Effect` with tagged errors.
-- **Don't add presets, fermentation-time tables, or recommended values for yeast %.** The user explicitly rejected these — they prefer to enter their own value and use the in-app live equivalent to sanity-check.
+- **Don't add presets or recommended values for the _preferment_ yeast %.** The user rejected these for the preferment split — they enter their own value and use the live equivalent to sanity-check. (This is distinct from the fermentation-protocol feature below, which is explicitly wanted.)
 - **Don't expand the "Documentation" page intro** (no "what is baker's %", no "what is preferment") and **don't add a "Sources/Bibliography" section** — both were explicitly removed.
 - **Don't add a sourdough yeast type or sourdough preferment** in v1. Not in scope.
 - **Don't make biga or poolish hydration configurable** — biga is always 45%, poolish always 100%. Hardcoded constants in `src/domain/Preferment.ts`.
@@ -128,7 +140,7 @@ PWA icons (`public/icons/*.png` and `public/apple-touch-icon.png`) are generated
 
 ## Tests overview
 
-Current count: **32 tests across 5 files** (as of last commit on main). Pattern:
+Current count: **47 tests across 7 files**. Pattern:
 - `src/calc/*.test.ts` — pure function tests with Vitest, no Effect runtime
 - `src/persistence/RecipeRepository.test.ts` — uses `RecipeRepositoryInMemory` via `Effect.provide`
 - `src/backup/Backup.test.ts` — round-trip through Schema with both InMemory repos

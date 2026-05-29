@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { Effect, Option } from "effect"
+import type { TemplateYeast } from "../domain/Yeast.ts"
 import { TemplateRepository } from "../persistence/TemplateRepository.ts"
 import { Button, Card, PageHeader } from "../ui/primitives.tsx"
 import { useEffectQuery } from "../ui/hooks.ts"
@@ -45,8 +46,7 @@ export const TemplatesPage = (): JSX.Element => {
                     <div>
                       <h2 className="font-semibold text-stone-800">{t.name}</h2>
                       <p className="text-sm text-stone-600">
-                        {t.hydrationPct}% hydratation · {t.yeastPct}% levure (
-                        {labelYeast(t.yeastType)})
+                        {t.hydrationPct}% hydratation · {yeastSummary(t.yeast)}
                         {Option.match(t.saltPct, {
                           onNone: () => null,
                           onSome: (s) => ` · ${s}% sel`,
@@ -67,3 +67,8 @@ export const TemplatesPage = (): JSX.Element => {
 
 const labelYeast = (t: "fresh" | "active-dry" | "instant-dry"): string =>
   t === "fresh" ? "fraîche" : t === "active-dry" ? "sèche active" : "sèche instantanée"
+
+const yeastSummary = (y: TemplateYeast): string =>
+  y._tag === "Manual"
+    ? `${y.pct}% levure (${labelYeast(y.type)})`
+    : `protocole · ${y.phases.length} phase(s) (${labelYeast(y.type)})`

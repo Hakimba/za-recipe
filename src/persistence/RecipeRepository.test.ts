@@ -15,7 +15,10 @@ const sampleRecipe = (id: string): Recipe => ({
   name: "Test pizza",
   flours: [{ name: "Caputo 00", grams: 500 as Recipe["flours"][number]["grams"] }],
   water: 325 as Recipe["water"],
-  yeast: { type: "fresh", grams: 1.5 as Recipe["yeast"]["grams"] },
+  yeast: {
+    _tag: "Manual",
+    amount: { type: "fresh", grams: 1.5 as Recipe["flours"][number]["grams"] },
+  },
   salt: Option.some(12.5 as Recipe["water"]),
   sugar: Option.none(),
   oliveOil: Option.none(),

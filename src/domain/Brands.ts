@@ -25,6 +25,15 @@ export const PositivePercentage = Schema.Number.pipe(
 )
 export type PositivePercentage = Schema.Schema.Type<typeof PositivePercentage>
 
+// Bounded to the fermentation table range: 35–80 °F ≈ 1.7–26.7 °C.
+export const Celsius = Schema.Number.pipe(
+  Schema.between(1.6, 26.7, {
+    message: () => "La température doit être entre 1.7 °C (35 °F) et 26.7 °C (80 °F)",
+  }),
+  Schema.brand("Celsius"),
+)
+export type Celsius = Schema.Schema.Type<typeof Celsius>
+
 const RATING_STEP = 0.1
 const isMultipleOfStep = (value: number): boolean => {
   const scaled = Math.round(value * 10)
