@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { Either } from "effect"
 import type { Celsius, PositiveNumber, PositivePercentage } from "../domain/Brands.ts"
-import type { FermentationProtocol } from "../domain/Fermentation.ts"
-import { celsiusToF, fahrenheitToC, type FermentationPhase } from "../domain/Fermentation.ts"
+import type { FermentationPhase, FermentationProtocol } from "../domain/Fermentation.ts"
 import {
   allYeastTypes,
   YeastTypeLabel,
@@ -21,37 +20,35 @@ export type YeastDraft = {
   mode: "manual" | "protocol"
   type: YeastType
   manual: number | "" // pct (template) or grams (direct), per manualKind
-  unit: "C" | "F"
   phases: ReadonlyArray<ProtocolPhaseDraft>
 }
+
+const defaultPhases: ReadonlyArray<ProtocolPhaseDraft> = [{ temperatureC: 22, hours: 4 }]
 
 export const emptyManualDraft = (type: YeastType, manual: number | ""): YeastDraft => ({
   mode: "manual",
   type,
   manual,
-  unit: "C",
-  phases: [{ temperatureC: 22, hours: 4 }],
+  phases: defaultPhases,
 })
 
 export const templateYeastToDraft = (y: TemplateYeast): YeastDraft =>
   y._tag === "Manual"
-    ? { mode: "manual", type: y.type, manual: y.pct as number, unit: "C", phases: [{ temperatureC: 22, hours: 4 }] }
+    ? { mode: "manual", type: y.type, manual: y.pct as number, phases: defaultPhases }
     : {
         mode: "protocol",
         type: y.type,
         manual: "",
-        unit: "C",
         phases: y.phases.map((p) => ({ temperatureC: p.temperatureC as number, hours: p.hours as number })),
       }
 
 export const recipeYeastToDraft = (y: RecipeYeast): YeastDraft =>
   y._tag === "Manual"
-    ? { mode: "manual", type: y.amount.type, manual: y.amount.grams as number, unit: "C", phases: [{ temperatureC: 22, hours: 4 }] }
+    ? { mode: "manual", type: y.amount.type, manual: y.amount.grams as number, phases: defaultPhases }
     : {
         mode: "protocol",
         type: y.type,
         manual: "",
-        unit: "C",
         phases: y.phases.map((p) => ({ temperatureC: p.temperatureC as number, hours: p.hours as number })),
       }
 
@@ -71,7 +68,7 @@ export const previewDerive = (draft: YeastDraft): Either.Either<DerivedYeast, un
 
 const fermentationErrorMessage = (e: { _tag?: string; kind?: string }): string => {
   if (e._tag === "FermentationTempOutOfRange") {
-    return "Une température est hors de la table (1.7–26.7 °C / 35–80 °F)."
+    return "Une température est hors plage : reste entre 1.7 et 26.7 °C."
   }
   if (e._tag === "FermentationUnreachable") {
     return e.kind === "overfermented"
@@ -147,12 +144,6 @@ export const FermentationProtocolEditor = ({
     onChange({ ...draft, phases: next })
   }
 
-  const displayTemp = (c: number | ""): number | "" =>
-    c === "" ? "" : draft.unit === "F" ? round1(celsiusToF(c)) : c
-
-  const storeTemp = (v: number | ""): number | "" =>
-    v === "" ? "" : draft.unit === "F" ? round1(fahrenheitToC(v)) : v
-
   const preview = draft.mode === "protocol" ? previewDerive(draft) : null
 
   return (
@@ -196,38 +187,28 @@ export const FermentationProtocolEditor = ({
         </FormField>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-stone-700 text-sm">Phases de fermentation</span>
-            <div className="flex gap-1">
-              <button
-                onClick={() => onChange({ ...draft, unit: "C" })}
-                className={`px-2 py-1 rounded-lg text-xs font-medium border ${draft.unit === "C" ? "bg-tomato-500 text-white border-tomato-500" : "bg-white text-stone-700 border-dough-300"}`}
-              >
-                °C
-              </button>
-              <button
-                onClick={() => onChange({ ...draft, unit: "F" })}
-                className={`px-2 py-1 rounded-lg text-xs font-medium border ${draft.unit === "F" ? "bg-tomato-500 text-white border-tomato-500" : "bg-white text-stone-700 border-dough-300"}`}
-              >
-                °F
-              </button>
-            </div>
+          <span className="font-medium text-stone-700 text-sm">
+            Phases de fermentation
+          </span>
+
+          <div className="flex gap-2 text-xs text-stone-500 px-1">
+            <span className="flex-1">Température (°C)</span>
+            <span className="flex-1">Durée (h)</span>
+            {draft.phases.length > 1 ? <span className="w-11" /> : null}
           </div>
 
           <ul className="flex flex-col gap-2">
             {draft.phases.map((p, i) => (
               <li key={i} className="flex gap-2 items-center">
                 <NumberInput
-                  value={displayTemp(p.temperatureC)}
-                  onChange={(v) => setPhase(i, { temperatureC: storeTemp(v) })}
-                  step={draft.unit === "F" ? 1 : 0.5}
-                  min={draft.unit === "F" ? 35 : 1.7}
-                  max={draft.unit === "F" ? 80 : 26.7}
-                  placeholder={draft.unit === "F" ? "35–80 °F" : "1.7–26.7 °C"}
+                  value={p.temperatureC}
+                  onChange={(v) => setPhase(i, { temperatureC: v === "" ? "" : round1(v) })}
+                  step={1}
+                  placeholder="°C"
                 />
                 <NumberInput
                   value={p.hours}
-                  onChange={(v) => setPhase(i, { hours: v })}
+                  onChange={(v) => setPhase(i, { hours: v === "" ? "" : round1(v) })}
                   step={1}
                   min={0}
                   placeholder="h"

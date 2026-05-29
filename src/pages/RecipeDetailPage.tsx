@@ -10,7 +10,6 @@ import { deriveYeastDefault } from "../calc/fermentation.ts"
 import { resolveRecipeYeast } from "../calc/resolveYeast.ts"
 import type { Recipe } from "../domain/Recipe.ts"
 import { totalFlour } from "../domain/Recipe.ts"
-import { celsiusToF } from "../domain/Fermentation.ts"
 import { PrefermentTypeLabel } from "../domain/Preferment.ts"
 import { nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
@@ -147,7 +146,7 @@ export const RecipeDetailPage = (): JSX.Element => {
               <Row
                 key={i}
                 label={`Phase ${i + 1}`}
-                value={`${p.hours} h à ${p.temperatureC} °C (${Math.round(celsiusToF(p.temperatureC))} °F)`}
+                value={`${p.hours} h à ${p.temperatureC} °C`}
               />
             ))}
           </ul>
