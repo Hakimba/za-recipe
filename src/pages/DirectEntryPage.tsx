@@ -1,16 +1,9 @@
 import { useNavigate } from "@tanstack/react-router"
-import { Effect, Exit, Option } from "effect"
+import { Effect, Either, Exit, Option } from "effect"
 import { useState } from "react"
 import type { Iso8601, PositiveNumber, RecipeId, Tag } from "../domain/Brands.ts"
 import type { FlourComponent, NamedIngredient } from "../domain/Ingredient.ts"
 import type { Recipe } from "../domain/Recipe.ts"
-import {
-  allYeastTypes,
-  YeastTypeLabel,
-  type YeastAmount,
-  type YeastType,
-} from "../domain/Yeast.ts"
-import { convertYeast } from "../calc/yeastConvert.ts"
 import { makeRecipeId, nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
 import { runPromiseExit } from "../runtime/Runtime.ts"
@@ -20,9 +13,14 @@ import {
   FormField,
   NumberInput,
   PageHeader,
-  Select,
   TextInput,
 } from "../ui/primitives.tsx"
+import {
+  draftToRecipeYeast,
+  emptyManualDraft,
+  FermentationProtocolEditor,
+  type YeastDraft,
+} from "../ui/FermentationProtocolEditor.tsx"
 
 type FlourRow = { name: string; grams: number | "" }
 type ExtraRow = { name: string; grams: number | "" }
@@ -31,8 +29,7 @@ type State = {
   name: string
   flours: ReadonlyArray<FlourRow>
   water: number | ""
-  yeastType: YeastType
-  yeastGrams: number | ""
+  yeast: YeastDraft
   salt: number | ""
   sugar: number | ""
   oliveOil: number | ""
@@ -46,8 +43,7 @@ const initial: State = {
   name: "",
   flours: [{ name: "Farine principale", grams: 500 }],
   water: 325,
-  yeastType: "fresh",
-  yeastGrams: 1.5,
+  yeast: emptyManualDraft("fresh", 1.5),
   salt: 12.5,
   sugar: "",
   oliveOil: "",
@@ -66,17 +62,7 @@ export const DirectEntryPage = (): JSX.Element => {
   const [err, setErr] = useState("")
   const [saving, setSaving] = useState(false)
 
-  const onYeastTypeChange = (to: YeastType): void => {
-    if (s.yeastGrams === "" || s.yeastGrams <= 0) {
-      setS({ ...s, yeastType: to })
-      return
-    }
-    const converted: YeastAmount = convertYeast(
-      { type: s.yeastType, grams: s.yeastGrams as YeastAmount["grams"] },
-      to,
-    )
-    setS({ ...s, yeastType: to, yeastGrams: converted.grams })
-  }
+  const totalFlour = s.flours.reduce((sum, f) => sum + (f.grams === "" ? 0 : f.grams), 0)
 
   const onSave = async (): Promise<void> => {
     setErr("")
@@ -84,7 +70,9 @@ export const DirectEntryPage = (): JSX.Element => {
     const cleanFlours = s.flours.filter((f) => f.name.trim() !== "" && f.grams !== "" && f.grams > 0)
     if (cleanFlours.length === 0) return setErr("Au moins une farine est requise")
     if (s.water === "" || s.water <= 0) return setErr("L'eau est requise")
-    if (s.yeastGrams === "" || s.yeastGrams <= 0) return setErr("La levure est requise")
+    const yeastResult = draftToRecipeYeast(s.yeast)
+    if (Either.isLeft(yeastResult)) return setErr(yeastResult.left)
+    const yeast = yeastResult.right
 
     setSaving(true)
     const exit = await runPromiseExit(
@@ -102,10 +90,7 @@ export const DirectEntryPage = (): JSX.Element => {
             }),
           ) as unknown as Recipe["flours"],
           water: s.water as PositiveNumber,
-          yeast: {
-            type: s.yeastType,
-            grams: s.yeastGrams as YeastAmount["grams"],
-          },
+          yeast,
           salt: pos(s.salt),
           sugar: pos(s.sugar),
           oliveOil: pos(s.oliveOil),
@@ -123,6 +108,7 @@ export const DirectEntryPage = (): JSX.Element => {
             .map((t) => t.trim())
             .filter((t) => t !== "") as unknown as ReadonlyArray<Tag>,
           favorite: s.favorite,
+          tried: false,
           rating: Option.none(),
           notes: s.notes.trim() === "" ? Option.none() : Option.some(s.notes.trim()),
           createdAt: now,
@@ -206,22 +192,12 @@ export const DirectEntryPage = (): JSX.Element => {
           />
         </FormField>
 
-        <FormField label="Type de levure" hint="Changer le type convertit la quantité">
-          <Select
-            value={s.yeastType}
-            onChange={onYeastTypeChange}
-            options={allYeastTypes.map((t) => ({ value: t, label: YeastTypeLabel[t] }))}
-          />
-        </FormField>
-
-        <FormField label="Levure (g)">
-          <NumberInput
-            value={s.yeastGrams}
-            onChange={(v) => setS({ ...s, yeastGrams: v })}
-            step={0.01}
-            min={0}
-          />
-        </FormField>
+        <FermentationProtocolEditor
+          draft={s.yeast}
+          onChange={(yeast) => setS({ ...s, yeast })}
+          manualKind="grams"
+          totalFlourGrams={totalFlour}
+        />
 
         <FormField label="Sel (g) — optionnel">
           <NumberInput value={s.salt} onChange={(v) => setS({ ...s, salt: v })} step={0.1} min={0} />

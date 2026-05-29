@@ -137,3 +137,56 @@ Pour la levure, comme l'input est un pourcentage de la levure totale (borné 0 �
 ## 6. Arrondis
 
 Toutes les valeurs affichées sont arrondies à **1 chiffre après la virgule** pour les grammes, et à **3 chiffres après la virgule** pour les conversions de levure. Les calculs internes utilisent la précision flottante complète avant arrondi final.
+
+---
+
+## 7. Protocole de fermentation (modèle TXCraig1)
+
+En mode « protocole », l'app dérive la quantité de levure à partir de tes **phases de fermentation** (chacune : une température et une durée). Elle s'appuie sur la table de prédiction de **TXCraig1** (pizzamaking.com). Le fichier source est téléchargeable en bas de cette page si tu veux vérifier.
+
+### La table
+
+Chaque case `F(température, levure)` donne le **nombre d'heures jusqu'à ce que la pâte soit prête** (100 % fermentée) à une température et une quantité de levure données. Les lignes vont de 1.7 °C (35 °F) à 35 °C (95 °F). Les colonnes couvrent les 3 types de levure (fraîche CY, sèche active ADY, sèche instantanée IDY), alignés : CY 0.1 % = ADY 0.042 % = IDY 0.032 %. (Au-dessus de 26.7 °C, seules les faibles quantités de levure — jusqu'à 1 % — sont couvertes.)
+
+### La loi unique : un réservoir à remplir à 100 %
+
+Chaque phase remplit une **fraction** du réservoir :
+
+$$
+\text{fraction}_i = \frac{\text{durée}_i}{F(\text{temp}_i,\ \text{levure})}
+$$
+
+La pâte est prête quand la somme vaut 1 :
+
+$$
+\sum_i \frac{\text{durée}_i}{F(\text{temp}_i,\ \text{levure})} = 1
+$$
+
+- **Mode template** : l'app cherche le **% de levure** qui fait somme = 1.
+- **Mode recette directe** : ce % est ensuite converti en **grammes** (`% × farine totale / 100`).
+- La **part de chaque phase** affichée est exactement `fraction_i`.
+
+L'app lit la table par **interpolation** (température sur la grille fine au °F, puis levure au point où la somme croise 1).
+
+### Exemple 1 — trouver la durée au frigo (levure connue)
+
+0.3 % de levure fraîche. Phase 1 : 3 h à 22 °C (72 °F). Phase 2 : frigo à 4 °C (40 °F).
+
+- Phase 1 : table = 7 h pour finir → fraction = 3 / 7 = **43 %**.
+- Reste 57 %. Au frigo, table = 97 h pour finir → durée = 0,57 × 97 ≈ **55 h**.
+- Total : 3 h + 55 h.
+
+### Exemple 2 — trouver la levure (cas principal)
+
+Voulu : 4 h à 22 °C (72 °F), puis 48 h à 4 °C (40 °F). Quelle levure ?
+
+- À 0.2 % : 4/9 + 48/130 = 0,44 + 0,37 = **0,81** → pas assez (ajouter de la levure).
+- À 0.3 % : 4/7 + 48/97 = 0,57 + 0,49 = **1,06** → trop (réduire).
+- Réponse ≈ **0,28 % de levure fraîche** (la somme tombe à 1).
+
+### Garde-fous et limites
+
+- Si une température est hors de la table (hors 1.7–35 °C / 35–95 °F), l'app le signale.
+- Si le protocole **sur-fermente** même avec très peu de levure (trop long / trop chaud) ou **sous-fermente** même avec beaucoup de levure (trop court / trop froid), l'app refuse et l'explique.
+- La table donne un **point de départ**, pas une précision à l'heure près. La pâte ne change pas de température instantanément (passer de 4 °C à 22 °C prend du temps) ; plus une phase est courte, plus cet effet compte. Surveille les 8–12 dernières heures et ajuste.
+- En cas de doute, mieux vaut légèrement sur-fermenter que sous-fermenter.

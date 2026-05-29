@@ -25,6 +25,16 @@ export const PositivePercentage = Schema.Number.pipe(
 )
 export type PositivePercentage = Schema.Schema.Type<typeof PositivePercentage>
 
+// Plausible dough temperature. The fermentation table's exact range
+// (35–80 °F ≈ 1.7–26.7 °C) is enforced by the solver, which reports a friendly
+// "hors table" error; this brand is kept generous so encoding never rejects a
+// value the solver already accepted.
+export const Celsius = Schema.Number.pipe(
+  Schema.between(0, 40, { message: () => "Température invalide" }),
+  Schema.brand("Celsius"),
+)
+export type Celsius = Schema.Schema.Type<typeof Celsius>
+
 const RATING_STEP = 0.1
 const isMultipleOfStep = (value: number): boolean => {
   const scaled = Math.round(value * 10)

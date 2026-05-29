@@ -1,5 +1,6 @@
 import { Schema } from "effect"
-import { PositiveNumber } from "./Brands.ts"
+import { PositiveNumber, PositivePercentage } from "./Brands.ts"
+import { FermentationProtocol } from "./Fermentation.ts"
 
 export const YeastType = Schema.Literal("fresh", "active-dry", "instant-dry")
 export type YeastType = Schema.Schema.Type<typeof YeastType>
@@ -23,3 +24,23 @@ export const FRESH_TO_TYPE_FACTOR: Record<YeastType, number> = {
   "active-dry": 0.4,
   "instant-dry": 0.33,
 }
+
+// How yeast is specified in a Template: either a manual baker's % or derived
+// from a fermentation protocol (the % is computed, never stored).
+export const TemplateYeast = Schema.Union(
+  Schema.TaggedStruct("Manual", { type: YeastType, pct: PositivePercentage }),
+  Schema.TaggedStruct("Protocol", { type: YeastType, phases: FermentationProtocol }),
+)
+export type TemplateYeast = Schema.Schema.Type<typeof TemplateYeast>
+
+// How yeast is specified in a concrete Recipe: either a manual gram amount or
+// derived from a fermentation protocol (grams computed from total flour).
+export const RecipeYeast = Schema.Union(
+  Schema.TaggedStruct("Manual", { amount: YeastAmount }),
+  Schema.TaggedStruct("Protocol", { type: YeastType, phases: FermentationProtocol }),
+)
+export type RecipeYeast = Schema.Schema.Type<typeof RecipeYeast>
+
+export const templateYeastType = (y: TemplateYeast): YeastType => y.type
+export const recipeYeastType = (y: RecipeYeast): YeastType =>
+  y._tag === "Manual" ? y.amount.type : y.type

@@ -1,6 +1,6 @@
 import { Data, Effect, Schema } from "effect"
-import { Recipe } from "../domain/Recipe.ts"
-import { Template } from "../domain/Template.ts"
+import { normalizeLegacyRecipe, Recipe } from "../domain/Recipe.ts"
+import { normalizeLegacyTemplate, Template } from "../domain/Template.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
 import { TemplateRepository } from "../persistence/TemplateRepository.ts"
 
@@ -21,7 +21,22 @@ export class BackupParseError extends Data.TaggedError("BackupParseError")<{
 }> {}
 
 const encodeBackup = Schema.encode(Backup)
-const decodeBackup = Schema.decodeUnknown(Backup)
+const decodeBackupSchema = Schema.decodeUnknown(Backup)
+
+// Normalize legacy yeast shapes inside an imported backup before decoding.
+const normalizeBackup = (raw: unknown): unknown => {
+  if (typeof raw !== "object" || raw === null) return raw
+  const r = raw as Record<string, unknown>
+  const mapArr = (v: unknown, f: (x: unknown) => unknown): unknown =>
+    Array.isArray(v) ? v.map(f) : v
+  return {
+    ...r,
+    recipes: mapArr(r["recipes"], normalizeLegacyRecipe),
+    templates: mapArr(r["templates"], normalizeLegacyTemplate),
+  }
+}
+
+const decodeBackup = (raw: unknown) => decodeBackupSchema(normalizeBackup(raw))
 
 export const buildBackup: Effect.Effect<
   string,

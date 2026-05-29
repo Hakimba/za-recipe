@@ -11,8 +11,10 @@ PWA compagnon pour le calcul automatique de preferment (biga, poolish) et la ges
   - Biga (hydratation fixe 45%)
   - Poolish (hydratation fixe 100%)
   - Output découpé en « Préferment » et « Rafraîchis »
+- **Protocole de fermentation** (modèle TXCraig1) — sur un template ou une recette directe sans preferment, la levure peut être saisie manuellement **ou** dérivée automatiquement d'une suite de phases (température + temps), avec aperçu live et part de fermentation par phase
 - **Bibliothèque** avec favoris ⭐, notes 0.0–10.0 (1 décimale), tags, filtres
-- **Documentation** intégrée — toutes les formules de calcul avec exemples chiffrés
+- **Documentation** intégrée — toutes les formules de calcul avec exemples chiffrés + table de fermentation téléchargeable
+- **Backup** JSON export/import (rétro-compatible avec les anciennes recettes)
 
 ## Stack
 
@@ -23,7 +25,7 @@ PWA compagnon pour le calcul automatique de preferment (biga, poolish) et la ges
 - IndexedDB (via `idb`) — stockage 100% local et offline
 - `vite-plugin-pwa` — service worker, manifest, install iOS
 - `react-markdown` + `remark-math` + `rehype-katex` — documentation rendue avec formules math
-- Vitest — 23 tests sur les calculs purs et le round-trip de schema
+- Vitest — 47 tests (calculs purs, solveur de fermentation, round-trip de schema, décodage legacy)
 
 ## Scripts
 
@@ -33,6 +35,7 @@ npm run dev          # dev server
 npm run typecheck    # tsc --noEmit
 npm test             # vitest run
 npm run icons        # régénère les icônes PWA depuis le SVG source
+npm run fermentation-table  # régénère src/domain/FermentationTable.ts depuis le CSV
 npm run build        # build prod
 npm run preview      # preview prod local
 ```

@@ -1,9 +1,9 @@
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { Effect, Exit, Option } from "effect"
 import { useEffect, useState } from "react"
+import { Either } from "effect"
 import type { PositivePercentage, TemplateId } from "../domain/Brands.ts"
 import type { Template, TemplateExtra } from "../domain/Template.ts"
-import { allYeastTypes, YeastTypeLabel, type YeastType } from "../domain/Yeast.ts"
 import { makeTemplateId, nowIso } from "../persistence/Id.ts"
 import { TemplateRepository } from "../persistence/TemplateRepository.ts"
 import {
@@ -12,17 +12,22 @@ import {
   FormField,
   NumberInput,
   PageHeader,
-  Select,
   TextInput,
 } from "../ui/primitives.tsx"
+import {
+  draftToTemplateYeast,
+  emptyManualDraft,
+  FermentationProtocolEditor,
+  templateYeastToDraft,
+  type YeastDraft,
+} from "../ui/FermentationProtocolEditor.tsx"
 import { useEffectQuery } from "../ui/hooks.ts"
 import { runPromiseExit } from "../runtime/Runtime.ts"
 
 type FormState = {
   name: string
   hydrationPct: number | ""
-  yeastType: YeastType
-  yeastPct: number | ""
+  yeast: YeastDraft
   saltPct: number | ""
   sugarPct: number | ""
   oliveOilPct: number | ""
@@ -32,8 +37,7 @@ type FormState = {
 const empty: FormState = {
   name: "",
   hydrationPct: 60,
-  yeastType: "fresh",
-  yeastPct: 0.3,
+  yeast: emptyManualDraft("fresh", 0.3),
   saltPct: 2.5,
   sugarPct: "",
   oliveOilPct: "",
@@ -43,8 +47,7 @@ const empty: FormState = {
 const fromTemplate = (t: Template): FormState => ({
   name: t.name,
   hydrationPct: t.hydrationPct,
-  yeastType: t.yeastType,
-  yeastPct: t.yeastPct,
+  yeast: templateYeastToDraft(t.yeast),
   saltPct: Option.getOrElse(t.saltPct, () => "" as const) as number | "",
   sugarPct: Option.getOrElse(t.sugarPct, () => "" as const) as number | "",
   oliveOilPct: Option.getOrElse(t.oliveOilPct, () => "" as const) as number | "",
@@ -83,10 +86,16 @@ export const TemplateEditPage = (): JSX.Element => {
       setError("Le nom est requis")
       return
     }
-    if (form.hydrationPct === "" || form.yeastPct === "") {
-      setError("Hydratation et levure sont requises")
+    if (form.hydrationPct === "") {
+      setError("L'hydratation est requise")
       return
     }
+    const yeastResult = draftToTemplateYeast(form.yeast)
+    if (Either.isLeft(yeastResult)) {
+      setError(yeastResult.left)
+      return
+    }
+    const yeast = yeastResult.right
     setSaving(true)
     const exit = await runPromiseExit(
       Effect.gen(function* () {
@@ -104,8 +113,7 @@ export const TemplateEditPage = (): JSX.Element => {
           id: baseId,
           name: form.name.trim(),
           hydrationPct: form.hydrationPct as PositivePercentage,
-          yeastType: form.yeastType,
-          yeastPct: form.yeastPct as PositivePercentage,
+          yeast,
           saltPct: optPositive(form.saltPct),
           sugarPct: optPositive(form.sugarPct),
           oliveOilPct: optPositive(form.oliveOilPct),
@@ -165,22 +173,11 @@ export const TemplateEditPage = (): JSX.Element => {
           />
         </FormField>
 
-        <FormField label="Type de levure">
-          <Select
-            value={form.yeastType}
-            onChange={(v) => setForm({ ...form, yeastType: v })}
-            options={allYeastTypes.map((t) => ({ value: t, label: YeastTypeLabel[t] }))}
-          />
-        </FormField>
-
-        <FormField label="Levure (%)" hint="En % du poids total de farine">
-          <NumberInput
-            value={form.yeastPct}
-            onChange={(v) => setForm({ ...form, yeastPct: v })}
-            step={0.01}
-            min={0.01}
-          />
-        </FormField>
+        <FermentationProtocolEditor
+          draft={form.yeast}
+          onChange={(yeast) => setForm({ ...form, yeast })}
+          manualKind="pct"
+        />
 
         <FormField label="Sel (%) — optionnel">
           <NumberInput

@@ -60,6 +60,9 @@ export const GeneratePage = (): JSX.Element => {
   const templates = templatesState.status === "ready" ? templatesState.data : []
   const selected: Template | undefined = templates.find((t) => t.id === selectedId)
 
+  // Preferment isn't yet compatible with a protocol-derived template.
+  const usesProtocol = selected !== undefined && selected.yeast._tag === "Protocol"
+
   const totalFlour = flours.reduce(
     (sum, f) => sum + (f.grams === "" ? 0 : f.grams),
     0,
@@ -87,6 +90,7 @@ export const GeneratePage = (): JSX.Element => {
     if (
       generatedRecipe === undefined ||
       !prefermentOn ||
+      usesProtocol ||
       flourPct === "" ||
       yeastPct === "" ||
       flourPct < 0 ||
@@ -113,7 +117,7 @@ export const GeneratePage = (): JSX.Element => {
       },
       spec,
     )
-  }, [generatedRecipe, prefermentOn, prefermentType, flourPct, yeastPct])
+  }, [generatedRecipe, prefermentOn, prefermentType, flourPct, yeastPct, usesProtocol])
 
   const [saveName, setSaveName] = useState("")
   const [saveTags, setSaveTags] = useState("")
@@ -134,7 +138,7 @@ export const GeneratePage = (): JSX.Element => {
         const id = (yield* makeRecipeId) as RecipeId
         const now = (yield* nowIso) as Iso8601
         const prefermentSpec: Option.Option<PrefermentSpec> =
-          prefermentOn && flourPct !== "" && yeastPct !== ""
+          prefermentOn && !usesProtocol && flourPct !== "" && yeastPct !== ""
             ? Option.some({
                 type: prefermentType,
                 flourPct: flourPct as Percentage,
@@ -146,7 +150,7 @@ export const GeneratePage = (): JSX.Element => {
           name: saveName.trim(),
           flours: generatedRecipe.flours as Recipe["flours"],
           water: generatedRecipe.water as PositiveNumber,
-          yeast: generatedRecipe.yeast,
+          yeast: { _tag: "Manual", amount: generatedRecipe.yeast },
           salt: generatedRecipe.salt as Option.Option<PositiveNumber>,
           sugar: generatedRecipe.sugar as Option.Option<PositiveNumber>,
           oliveOil: generatedRecipe.oliveOil as Option.Option<PositiveNumber>,
@@ -162,6 +166,7 @@ export const GeneratePage = (): JSX.Element => {
             .map((t) => t.trim())
             .filter((t) => t !== "") as unknown as ReadonlyArray<Tag>,
           favorite: false,
+          tried: false,
           rating: Option.none(),
           notes: Option.none(),
           createdAt: now,
@@ -250,14 +255,25 @@ export const GeneratePage = (): JSX.Element => {
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={prefermentOn}
+            checked={prefermentOn && !usesProtocol}
+            disabled={usesProtocol}
             onChange={(e) => setPrefermentOn(e.target.checked)}
             className="w-5 h-5"
           />
-          <span className="font-medium">Utiliser un preferment</span>
+          <span className={`font-medium ${usesProtocol ? "text-stone-400" : ""}`}>
+            Utiliser un preferment
+          </span>
         </label>
 
-        {prefermentOn ? (
+        {usesProtocol ? (
+          <p className="text-xs text-stone-500 bg-dough-100 rounded-lg px-3 py-2">
+            Ce template utilise un protocole de fermentation. Le calcul de preferment n'est pas
+            encore compatible avec un protocole — choisis un template à levure manuelle pour
+            utiliser un preferment.
+          </p>
+        ) : null}
+
+        {prefermentOn && !usesProtocol ? (
           <>
             <FormField label="Type de preferment">
               <Select

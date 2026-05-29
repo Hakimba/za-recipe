@@ -3,6 +3,7 @@ import { EmptyFlourComposition, type DomainError } from "../domain/Errors.ts"
 import type { FlourComponent } from "../domain/Ingredient.ts"
 import type { Template } from "../domain/Template.ts"
 import type { YeastAmount } from "../domain/Yeast.ts"
+import { resolveTemplateYeast } from "./resolveYeast.ts"
 
 const round1 = (value: number): number => Math.round(value * 10) / 10
 
@@ -38,22 +39,23 @@ export const generateFromTemplate = (
   const totalFlour = flourComposition.reduce((sum, f) => sum + f.grams, 0)
 
   const water = round1(totalFlour * (template.hydrationPct / 100))
-  const yeastGrams = round1(totalFlour * (template.yeastPct / 100))
 
-  return Either.right({
-    flours: flourComposition,
-    totalFlour,
-    water,
-    yeast: {
-      type: template.yeastType,
-      grams: yeastGrams as YeastAmount["grams"],
-    },
-    salt: optPct(template.saltPct, totalFlour),
-    sugar: optPct(template.sugarPct, totalFlour),
-    oliveOil: optPct(template.oliveOilPct, totalFlour),
-    extras: template.extras.map((e) => ({
-      name: e.name,
-      grams: round1(totalFlour * (e.pct / 100)),
+  return resolveTemplateYeast(template.yeast).pipe(
+    Either.map((resolved) => ({
+      flours: flourComposition,
+      totalFlour,
+      water,
+      yeast: {
+        type: resolved.type,
+        grams: round1(totalFlour * (resolved.pct / 100)) as YeastAmount["grams"],
+      },
+      salt: optPct(template.saltPct, totalFlour),
+      sugar: optPct(template.sugarPct, totalFlour),
+      oliveOil: optPct(template.oliveOilPct, totalFlour),
+      extras: template.extras.map((e) => ({
+        name: e.name,
+        grams: round1(totalFlour * (e.pct / 100)),
+      })),
     })),
-  })
+  )
 }

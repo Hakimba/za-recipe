@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import type { RecipeId } from "../domain/Brands.ts"
-import { Recipe } from "../domain/Recipe.ts"
+import { normalizeLegacyRecipe, Recipe } from "../domain/Recipe.ts"
 import { openPizzaDB, RECIPES_STORE, type DB } from "./db.ts"
 import { RepoError } from "./RepoError.ts"
 
@@ -15,7 +15,8 @@ export class RecipeRepository extends Context.Tag("RecipeRepository")<
 >() {}
 
 const encodeRecipe = Schema.encode(Recipe)
-const decodeRecipe = Schema.decodeUnknown(Recipe)
+const decodeRecipeSchema = Schema.decodeUnknown(Recipe)
+const decodeRecipe = (raw: unknown) => decodeRecipeSchema(normalizeLegacyRecipe(raw))
 
 const toRepoError =
   (op: string) =>
