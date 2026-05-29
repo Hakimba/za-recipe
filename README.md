@@ -1,6 +1,6 @@
-# Pizza Preferment (za-recipe)
+# Za recipe
 
-PWA compagnon pour le calcul automatique de preferment (biga, poolish) et la gestion de recettes de pizza. Installable sur iPhone via Safari → « Sur l'écran d'accueil ».
+PWA compagnon pour le calcul automatique de preferment (biga, poolish), de la quantité de levure selon un protocole et la gestion de recettes de pizza.
 
 ## Fonctionnalités
 
