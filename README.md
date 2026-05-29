@@ -40,15 +40,6 @@ npm run build        # build prod
 npm run preview      # preview prod local
 ```
 
-## Installer sur iPhone
-
-1. Push sur `main` → GitHub Pages déploie automatiquement à `https://hakimba.github.io/za-recipe/`
-2. Ouvre cette URL dans **Safari** (pas Chrome — l'install PWA n'est supportée que par Safari sur iOS)
-3. Bouton **Partager** (carré avec flèche vers le haut) → **« Sur l'écran d'accueil »**
-4. L'icône apparaît, l'app se lance en plein écran sans barre Safari
-
-L'app fonctionne 100% offline une fois installée. Les recettes et templates sont stockés dans IndexedDB sur l'iPhone (rester sous le quota Safari ≈ 50 MB qui est très loin d'être atteint).
-
 ## Structure du code
 
 ```
@@ -62,15 +53,4 @@ src/
   docs/            # Markdown des méthodes de calcul (rendu par react-markdown + KaTeX)
   router.tsx       # Routes TanStack
 ```
-
-## Phases livrées
-
-- [x] Phase 0 — Scaffold Vite + React + TS + Effect + Tailwind + PWA
-- [x] Phase 1 — Domain + calculs purs (21 tests)
-- [x] Phase 2 — Repositories IndexedDB (Effect services, encode/decode via Schema)
-- [x] Phase 3 — Saisie directe + Templates CRUD
-- [x] Phase 4 — Génération depuis template
-- [x] Phase 5 — **Section Preferment** (biga 45%, poolish 100%) avec validation
-- [x] Phase 6 — Bibliothèque + tags + favoris + note 0.0–10.0 + filtres
-- [x] Phase 7 — Page Documentation (markdown + KaTeX, lazy-loaded)
 - [x] Phase 8 — Polish, icônes PWA, déploiement GitHub Pages
