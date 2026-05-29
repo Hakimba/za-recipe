@@ -11,7 +11,12 @@ import {
   type YeastType,
 } from "../domain/Yeast.ts"
 import { convertYeast } from "../calc/yeastConvert.ts"
-import { deriveYeastDefault, type DerivedYeast } from "../calc/fermentation.ts"
+import {
+  deriveYeastDefault,
+  FERMENTATION_MAX_C,
+  FERMENTATION_MIN_C,
+  type DerivedYeast,
+} from "../calc/fermentation.ts"
 import { Button, FormField, NumberInput, Select } from "./primitives.tsx"
 
 export type ProtocolPhaseDraft = { temperatureC: number | ""; hours: number | "" }
@@ -68,7 +73,7 @@ export const previewDerive = (draft: YeastDraft): Either.Either<DerivedYeast, un
 
 const fermentationErrorMessage = (e: { _tag?: string; kind?: string }): string => {
   if (e._tag === "FermentationTempOutOfRange") {
-    return "Une température est hors plage : reste entre 1.7 et 26.7 °C."
+    return `Une température est hors plage : reste entre ${FERMENTATION_MIN_C} et ${FERMENTATION_MAX_C} °C.`
   }
   if (e._tag === "FermentationUnreachable") {
     return e.kind === "overfermented"

@@ -34,7 +34,16 @@ describe("hoursAt", () => {
 
   it("returns None outside the temperature range", () => {
     const col = FERMENTATION_TABLE.cyPct.indexOf(0.3)
-    expect(Option.isNone(hoursAt(FERMENTATION_TABLE, 90, col))).toBe(true)
+    expect(Option.isNone(hoursAt(FERMENTATION_TABLE, 100, col))).toBe(true)
+  })
+
+  it("covers the extended warm zone (merged table reaches 95 °F)", () => {
+    const col = FERMENTATION_TABLE.cyPct.indexOf(0.3)
+    // 90 °F is in the merged range now; a low-yeast column has data there.
+    expect(Option.isSome(hoursAt(FERMENTATION_TABLE, 90, col))).toBe(true)
+    // but the high-yeast columns (>1%) are null in the warm zone
+    const col3 = FERMENTATION_TABLE.cyPct.indexOf(3)
+    expect(Option.isNone(hoursAt(FERMENTATION_TABLE, 90, col3))).toBe(true)
   })
 })
 

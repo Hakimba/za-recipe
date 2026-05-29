@@ -146,7 +146,7 @@ En mode « protocole », l'app dérive la quantité de levure à partir de tes *
 
 ### La table
 
-Chaque case `F(température, levure)` donne le **nombre d'heures jusqu'à ce que la pâte soit prête** (100 % fermentée) à une température et une quantité de levure données. Les lignes vont de 35 °F (1.7 °C) à 80 °F (26.7 °C). Les colonnes couvrent les 3 types de levure (fraîche CY, sèche active ADY, sèche instantanée IDY), alignés : CY 0.1 % = ADY 0.042 % = IDY 0.032 %.
+Chaque case `F(température, levure)` donne le **nombre d'heures jusqu'à ce que la pâte soit prête** (100 % fermentée) à une température et une quantité de levure données. Les lignes vont de 1.7 °C (35 °F) à 35 °C (95 °F). Les colonnes couvrent les 3 types de levure (fraîche CY, sèche active ADY, sèche instantanée IDY), alignés : CY 0.1 % = ADY 0.042 % = IDY 0.032 %. (Au-dessus de 26.7 °C, seules les faibles quantités de levure — jusqu'à 1 % — sont couvertes.)
 
 ### La loi unique : un réservoir à remplir à 100 %
 
@@ -186,7 +186,7 @@ Voulu : 4 h à 22 °C (72 °F), puis 48 h à 4 °C (40 °F). Quelle levure ?
 
 ### Garde-fous et limites
 
-- Si une température est hors de la table (hors 1.7–26.7 °C / 35–80 °F), l'app le signale.
+- Si une température est hors de la table (hors 1.7–35 °C / 35–95 °F), l'app le signale.
 - Si le protocole **sur-fermente** même avec très peu de levure (trop long / trop chaud) ou **sous-fermente** même avec beaucoup de levure (trop court / trop froid), l'app refuse et l'explique.
 - La table donne un **point de départ**, pas une précision à l'heure près. La pâte ne change pas de température instantanément (passer de 4 °C à 22 °C prend du temps) ; plus une phase est courte, plus cet effet compte. Surveille les 8–12 dernières heures et ajuste.
 - En cas de doute, mieux vaut légèrement sur-fermenter que sous-fermenter.

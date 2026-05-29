@@ -5,7 +5,7 @@ import {
   FermentationUnreachable,
   type DomainError,
 } from "../domain/Errors.ts"
-import { celsiusToF, type FermentationPhase } from "../domain/Fermentation.ts"
+import { celsiusToF, fahrenheitToC, type FermentationPhase } from "../domain/Fermentation.ts"
 import {
   FERMENTATION_MAX_F,
   FERMENTATION_MIN_F,
@@ -18,6 +18,10 @@ const round = (value: number, decimals: number): number => {
   const k = 10 ** decimals
   return Math.round(value * k) / k
 }
+
+// Table temperature range expressed in °C, for validation + UI messages.
+export const FERMENTATION_MIN_C = round(fahrenheitToC(FERMENTATION_MIN_F), 1)
+export const FERMENTATION_MAX_C = round(fahrenheitToC(FERMENTATION_MAX_F), 1)
 
 const headersFor = (table: FermentationTable, type: YeastType): ReadonlyArray<number> =>
   type === "fresh" ? table.cyPct : type === "active-dry" ? table.adyPct : table.idyPct
@@ -93,8 +97,8 @@ export const deriveYeast = (
         new FermentationTempOutOfRange({
           phaseIndex: i,
           temperatureC: phases[i]!.temperatureC,
-          minC: 1.7,
-          maxC: 26.7,
+          minC: FERMENTATION_MIN_C,
+          maxC: FERMENTATION_MAX_C,
         }),
       )
     }
