@@ -54,7 +54,7 @@ export const BackupPage = (): JSX.Element => {
 
   return (
     <>
-      <PageHeader title="Sauvegarde" subtitle="Export / Import JSON" />
+      <PageHeader title="Sauvegarde" subtitle="Export / Import JSON" back />
 
       <Card className="flex flex-col gap-3">
         <h2 className="font-semibold text-stone-800">Exporter</h2>

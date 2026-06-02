@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ MANDATORY — Backup-first / backup-after workflow (NON-NEGOTIABLE)
+
+The app now has **real users**. Updating the PWA means deleting and re-adding it to the home screen, which **wipes all IndexedDB data**. The only data-portability story is the JSON export/import on the Backup page (`pages/BackupPage.tsx` + `src/backup/Backup.ts`). Therefore, on **every** development task touching this app:
+
+1. **BEFORE writing any code:** generate an export of the current version (run the app and use the Backup page's export, or run the `buildBackup` effect) and keep that JSON as a baseline artifact for the session.
+2. **AFTER the change:** verify the **full export → import round-trip still works with no regression** — old backups must still import cleanly, and a fresh export must re-import without data loss. Run `src/backup/Backup.test.ts` (round-trip through Schema) and, for any schema/domain change, add/extend backup round-trip + legacy-decode coverage.
+3. **Any change to a domain Schema** (`Recipe`, `Template`, yeast/preferment unions, brands, …) is a backup-format change by definition: it MUST stay backward-compatible (new fields via `Schema.optionalWith(..., { as: "Option", nullable: true })` / `OptionFromNullishOr`, plus `normalizeLegacy*` if needed) so a backup taken on an older deployed version still imports. Never break decoding of an older backup.
+
+If you cannot run the app to produce a live export, at minimum exercise the export/import path in tests and state explicitly in your summary that the live round-trip still needs manual verification before shipping.
+
 ## Project
 
 **za-recipe** — personal iPhone PWA companion app for pizza recipes with automatic preferment (biga, poolish) calculations. Solo user (the repo owner), no backend, offline-first.

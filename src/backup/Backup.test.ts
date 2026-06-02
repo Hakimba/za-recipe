@@ -32,6 +32,7 @@ const sampleRecipe = (id: string, name: string): Recipe => ({
   oliveOil: Option.none(),
   extras: [],
   preferment: Option.none(),
+  sourceTemplate: Option.none(),
   tags: [],
   favorite: true,
   tried: false,

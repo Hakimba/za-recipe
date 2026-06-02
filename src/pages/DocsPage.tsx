@@ -10,7 +10,7 @@ const tableHref = `${import.meta.env.BASE_URL}bareme_fermentation_etendu_corrige
 
 export const DocsPage = (): JSX.Element => (
   <>
-    <PageHeader title="Documentation" subtitle="Méthodes de calcul utilisées" />
+    <PageHeader title="Documentation" subtitle="Méthodes de calcul utilisées" back />
     <article className="prose-pizza">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}

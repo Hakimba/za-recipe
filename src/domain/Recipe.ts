@@ -1,8 +1,16 @@
 import { Schema } from "effect"
-import { Iso8601, PositiveNumber, Rating, RecipeId, Tag } from "./Brands.ts"
+import { Iso8601, PositiveNumber, Rating, RecipeId, Tag, TemplateId } from "./Brands.ts"
 import { FlourComponent, NamedIngredient } from "./Ingredient.ts"
 import { PrefermentSpec } from "./Preferment.ts"
 import { RecipeYeast } from "./Yeast.ts"
+
+// The template a generated recipe came from. Name is snapshotted so the link
+// still reads correctly if the template is later renamed or deleted.
+export const SourceTemplate = Schema.Struct({
+  id: TemplateId,
+  name: Schema.String,
+})
+export type SourceTemplate = Schema.Schema.Type<typeof SourceTemplate>
 
 export const Recipe = Schema.Struct({
   id: RecipeId,
@@ -15,6 +23,7 @@ export const Recipe = Schema.Struct({
   oliveOil: Schema.OptionFromNullishOr(PositiveNumber, null),
   extras: Schema.Array(NamedIngredient),
   preferment: Schema.OptionFromNullishOr(PrefermentSpec, null),
+  sourceTemplate: Schema.optionalWith(SourceTemplate, { as: "Option", nullable: true }),
   tags: Schema.Array(Tag),
   favorite: Schema.Boolean,
   tried: Schema.optionalWith(Schema.Boolean, { default: () => false, nullable: true }),

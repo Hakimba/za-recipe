@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Option, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import { normalizeLegacyRecipe, Recipe } from "./Recipe.ts"
 import { normalizeLegacyTemplate, Template } from "./Template.ts"
@@ -77,6 +77,26 @@ describe("legacy decode — Recipe", () => {
   it("defaults the new `tried` flag to false for legacy records", () => {
     const r = decodeRecipe(legacyRecipeJson)
     expect(r.tried).toBe(false)
+  })
+
+  it("defaults `sourceTemplate` to None for legacy records (key absent)", () => {
+    const r = decodeRecipe(legacyRecipeJson)
+    expect(Option.isNone(r.sourceTemplate)).toBe(true)
+  })
+
+  it("decodes a present sourceTemplate to Some", () => {
+    const withTemplate = {
+      ...legacyRecipeJson,
+      yeast: { _tag: "Manual", amount: { type: "fresh", grams: 1.5 } },
+      sourceTemplate: {
+        id: "11111111-1111-4111-8111-111111111111",
+        name: "Napoletana 65%",
+      },
+    }
+    const r = decodeRecipe(withTemplate)
+    expect(Option.isSome(r.sourceTemplate)).toBe(true)
+    if (Option.isNone(r.sourceTemplate)) return
+    expect(r.sourceTemplate.value.name).toBe("Napoletana 65%")
   })
 
   it("leaves a modern recipe untouched", () => {

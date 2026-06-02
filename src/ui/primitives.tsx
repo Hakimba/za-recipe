@@ -1,3 +1,4 @@
+import { useRouter } from "@tanstack/react-router"
 import type { InputHTMLAttributes, ReactNode } from "react"
 
 export const Card = ({
@@ -141,22 +142,40 @@ export const Select = <T extends string>({
   </select>
 )
 
+export const BackButton = (): JSX.Element => {
+  const router = useRouter()
+  return (
+    <button
+      type="button"
+      onClick={() => router.history.back()}
+      className="inline-flex items-center gap-1 text-sm font-medium text-stone-600 hover:text-stone-900 -ml-1 mb-2 min-h-[44px]"
+    >
+      <span aria-hidden>←</span> Retour
+    </button>
+  )
+}
+
 export const PageHeader = ({
   title,
   subtitle,
   action,
+  back = false,
 }: {
   title: string
   subtitle?: string
   action?: ReactNode
+  back?: boolean
 }): JSX.Element => (
-  <header className="flex items-start justify-between gap-3 mb-4">
-    <div className="min-w-0">
-      <h1 className="text-2xl font-bold text-tomato-700">{title}</h1>
-      {subtitle !== undefined ? (
-        <p className="text-stone-600 text-sm mt-0.5">{subtitle}</p>
-      ) : null}
+  <header className="mb-4">
+    {back ? <BackButton /> : null}
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-2xl font-bold text-tomato-700">{title}</h1>
+        {subtitle !== undefined ? (
+          <p className="text-stone-600 text-sm mt-0.5">{subtitle}</p>
+        ) : null}
+      </div>
+      {action}
     </div>
-    {action}
   </header>
 )

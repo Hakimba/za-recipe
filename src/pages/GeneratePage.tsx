@@ -161,6 +161,7 @@ export const GeneratePage = (): JSX.Element => {
             }),
           ),
           preferment: prefermentSpec,
+          sourceTemplate: Option.some({ id: selected.id, name: selected.name }),
           tags: saveTags
             .split(",")
             .map((t) => t.trim())
@@ -182,7 +183,7 @@ export const GeneratePage = (): JSX.Element => {
 
   return (
     <>
-      <PageHeader title="Générer une recette" subtitle="Template + farine = grammes" />
+      <PageHeader title="Générer une recette" subtitle="Template + farine = grammes" back />
 
       <Card className="flex flex-col gap-4">
         <FormField label="Template">
