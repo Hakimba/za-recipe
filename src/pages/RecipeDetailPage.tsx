@@ -8,13 +8,14 @@ import {
 } from "../calc/prefermentSplit.ts"
 import { deriveYeastDefault } from "../calc/fermentation.ts"
 import { resolveRecipeYeast } from "../calc/resolveYeast.ts"
-import type { Recipe } from "../domain/Recipe.ts"
+import type { Recipe, SourceTemplate } from "../domain/Recipe.ts"
 import { totalFlour } from "../domain/Recipe.ts"
 import { PrefermentTypeLabel } from "../domain/Preferment.ts"
 import { nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
+import { TemplateRepository } from "../persistence/TemplateRepository.ts"
 import { runPromiseExit } from "../runtime/Runtime.ts"
-import { Button, Card, FormField, PageHeader, TextInput } from "../ui/primitives.tsx"
+import { Button, Card, FormField, PageHeader, Select, TextInput } from "../ui/primitives.tsx"
 import { useEffectQuery } from "../ui/hooks.ts"
 
 export const RecipeDetailPage = (): JSX.Element => {
@@ -24,6 +25,11 @@ export const RecipeDetailPage = (): JSX.Element => {
     () => Effect.flatMap(RecipeRepository, (r) => r.get(id as RecipeId)),
     [id],
   )
+  const { state: templatesState } = useEffectQuery(
+    () => Effect.flatMap(TemplateRepository, (tr) => tr.list),
+    [],
+  )
+  const templates = templatesState.status === "ready" ? templatesState.data : []
 
   const [rating, setRating] = useState<number | "">("")
   const [notes, setNotes] = useState("")
@@ -85,6 +91,26 @@ export const RecipeDetailPage = (): JSX.Element => {
     if (Exit.isSuccess(exit)) navigate({ to: "/library" })
   }
 
+  // Associate / change / clear the source template a posteriori. Empty = clear.
+  // Reads the persisted record so unsaved evaluation edits aren't clobbered.
+  const onAssociateTemplate = async (templateId: string): Promise<void> => {
+    setSaving(true)
+    const exit = await runPromiseExit(
+      Effect.gen(function* () {
+        const repo = yield* RecipeRepository
+        const maybe = yield* repo.get(r.id)
+        if (Option.isNone(maybe)) return
+        const now = (yield* nowIso) as Recipe["updatedAt"]
+        const sourceTemplate: Option.Option<SourceTemplate> = Option.fromNullable(
+          templateId === "" ? undefined : templates.find((t) => t.id === templateId),
+        ).pipe(Option.map((t) => ({ id: t.id, name: t.name })))
+        yield* repo.save({ ...maybe.value, sourceTemplate, updatedAt: now })
+      }),
+    )
+    setSaving(false)
+    if (Exit.isSuccess(exit)) refetch()
+  }
+
   const tf = totalFlour(r.flours)
 
   const resolvedYeast = resolveRecipeYeast(r.yeast, tf)
@@ -114,20 +140,40 @@ export const RecipeDetailPage = (): JSX.Element => {
     <>
       <PageHeader title={r.name} subtitle={`${tf} g de farine totale`} back />
 
-      {Option.match(r.sourceTemplate, {
-        onNone: () => null,
-        onSome: (t) => (
-          <Link to="/templates/$id" params={{ id: t.id }} className="block mb-3">
-            <Card className="active:bg-dough-100 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs text-stone-500">Généré depuis le template</p>
-                <p className="font-semibold text-stone-800 truncate">{t.name}</p>
-              </div>
-              <span className="text-stone-400 shrink-0" aria-hidden>→</span>
-            </Card>
-          </Link>
-        ),
-      })}
+      <Card className="mb-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-semibold">Template</h3>
+          {Option.match(r.sourceTemplate, {
+            onNone: () => <span className="text-xs text-stone-500">Aucun template associé</span>,
+            onSome: (t) => (
+              <Link
+                to="/templates/$id"
+                params={{ id: t.id }}
+                className="text-sm font-medium text-tomato-700 hover:underline truncate"
+              >
+                {t.name} →
+              </Link>
+            ),
+          })}
+        </div>
+        {templates.length > 0 ? (
+          <Select
+            value={Option.match(r.sourceTemplate, {
+              onNone: () => "",
+              onSome: (t) => t.id as string,
+            })}
+            onChange={(v) => void onAssociateTemplate(v)}
+            options={[
+              { value: "", label: "— Aucun —" },
+              ...templates.map((t) => ({ value: t.id as string, label: t.name })),
+            ]}
+          />
+        ) : (
+          <p className="text-xs text-stone-500">
+            Crée un template pour pouvoir l'associer à cette recette.
+          </p>
+        )}
+      </Card>
 
       <Card className="flex flex-col">
         <h3 className="font-semibold mb-2">Ingrédients</h3>
