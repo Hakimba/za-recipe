@@ -199,6 +199,14 @@ export const LibraryPage = (): JSX.Element => {
                         {r.tried ? <span title="Essayée">🍕</span> : null}
                         <h2 className="font-semibold text-stone-800 truncate">{r.name}</h2>
                       </div>
+                      {Option.match(r.sourceTemplate, {
+                        onNone: () => null,
+                        onSome: (t) => (
+                          <p className="text-xs text-stone-500 mt-0.5 truncate">
+                            📐 {t.name}
+                          </p>
+                        ),
+                      })}
                       <div className="flex flex-wrap gap-1 mt-1">
                         {r.tags.map((t) => (
                           <span

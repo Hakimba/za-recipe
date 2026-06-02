@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "@tanstack/react-router"
+import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { Effect, Either, Exit, Option } from "effect"
 import { useEffect, useState } from "react"
 import type { PositiveNumber, Rating, RecipeId, Tag } from "../domain/Brands.ts"
@@ -112,7 +112,22 @@ export const RecipeDetailPage = (): JSX.Element => {
 
   return (
     <>
-      <PageHeader title={r.name} subtitle={`${tf} g de farine totale`} />
+      <PageHeader title={r.name} subtitle={`${tf} g de farine totale`} back />
+
+      {Option.match(r.sourceTemplate, {
+        onNone: () => null,
+        onSome: (t) => (
+          <Link to="/templates/$id" params={{ id: t.id }} className="block mb-3">
+            <Card className="active:bg-dough-100 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs text-stone-500">Généré depuis le template</p>
+                <p className="font-semibold text-stone-800 truncate">{t.name}</p>
+              </div>
+              <span className="text-stone-400 shrink-0" aria-hidden>→</span>
+            </Card>
+          </Link>
+        ),
+      })}
 
       <Card className="flex flex-col">
         <h3 className="font-semibold mb-2">Ingrédients</h3>

@@ -24,6 +24,7 @@ const sampleRecipe = (id: string): Recipe => ({
   oliveOil: Option.none(),
   extras: [],
   preferment: Option.none(),
+  sourceTemplate: Option.none(),
   tags: [],
   favorite: false,
   tried: false,

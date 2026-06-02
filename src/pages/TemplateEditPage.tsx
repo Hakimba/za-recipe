@@ -152,7 +152,7 @@ export const TemplateEditPage = (): JSX.Element => {
 
   return (
     <>
-      <PageHeader title={isNew ? "Nouveau template" : "Modifier le template"} />
+      <PageHeader title={isNew ? "Nouveau template" : "Modifier le template"} back />
 
       <Card className="flex flex-col gap-4">
         <FormField label="Nom">

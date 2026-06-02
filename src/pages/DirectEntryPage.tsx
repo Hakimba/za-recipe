@@ -103,6 +103,7 @@ export const DirectEntryPage = (): JSX.Element => {
               }),
             ),
           preferment: Option.none(),
+          sourceTemplate: Option.none(),
           tags: s.tags
             .split(",")
             .map((t) => t.trim())
@@ -124,7 +125,7 @@ export const DirectEntryPage = (): JSX.Element => {
 
   return (
     <>
-      <PageHeader title="Saisie directe" subtitle="Recette en grammes" />
+      <PageHeader title="Saisie directe" subtitle="Recette en grammes" back />
 
       <Card className="flex flex-col gap-4">
         <FormField label="Nom">
