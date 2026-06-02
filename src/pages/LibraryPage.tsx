@@ -40,6 +40,7 @@ export const LibraryPage = (): JSX.Element => {
   const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [triedFilter, setTriedFilter] = useState<TriedFilter>("all")
   const [selectedTags, setSelectedTags] = useState<ReadonlyArray<string>>([])
+  const [selectedTemplates, setSelectedTemplates] = useState<ReadonlyArray<string>>([])
   const [minRating, setMinRating] = useState<number | "">("")
 
   const recipes = state.status === "ready" ? state.data : []
@@ -50,11 +51,30 @@ export const LibraryPage = (): JSX.Element => {
     return Array.from(set).sort()
   }, [recipes])
 
+  // Distinct source templates across the library (id → name), for filtering.
+  const allTemplates = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of recipes) {
+      if (Option.isSome(r.sourceTemplate)) {
+        map.set(r.sourceTemplate.value.id, r.sourceTemplate.value.name)
+      }
+    }
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name < b.name ? -1 : 1,
+    )
+  }, [recipes])
+
   const filtered = useMemo(() => {
     return recipes
-      .filter((r) =>
-        search === "" ? true : r.name.toLowerCase().includes(search.toLowerCase()),
-      )
+      .filter((r) => {
+        if (search === "") return true
+        const q = search.toLowerCase()
+        if (r.name.toLowerCase().includes(q)) return true
+        return Option.match(r.sourceTemplate, {
+          onNone: () => false,
+          onSome: (t) => t.name.toLowerCase().includes(q),
+        })
+      })
       .filter((r) => (favoritesOnly ? r.favorite : true))
       .filter((r) =>
         triedFilter === "all" ? true : triedFilter === "tried" ? r.tried : !r.tried,
@@ -65,6 +85,14 @@ export const LibraryPage = (): JSX.Element => {
           : selectedTags.every((t) => r.tags.includes(t as (typeof r.tags)[number])),
       )
       .filter((r) =>
+        selectedTemplates.length === 0
+          ? true
+          : Option.match(r.sourceTemplate, {
+              onNone: () => false,
+              onSome: (t) => selectedTemplates.includes(t.id),
+            }),
+      )
+      .filter((r) =>
         minRating === ""
           ? true
           : Option.match(r.rating, {
@@ -73,7 +101,7 @@ export const LibraryPage = (): JSX.Element => {
             }),
       )
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
-  }, [recipes, search, favoritesOnly, triedFilter, selectedTags, minRating])
+  }, [recipes, search, favoritesOnly, triedFilter, selectedTags, selectedTemplates, minRating])
 
   const onToggleFavorite = async (id: RecipeId): Promise<void> => {
     const exit = await runPromiseExit(toggleFavoriteEffect(id))
@@ -98,7 +126,7 @@ export const LibraryPage = (): JSX.Element => {
         <TextInput
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher par nom…"
+          placeholder="Rechercher par nom ou template…"
         />
         <div className="flex flex-wrap gap-2 items-center">
           <button
@@ -161,6 +189,32 @@ export const LibraryPage = (): JSX.Element => {
                   }`}
                 >
                   {t}
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+        {allTemplates.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {allTemplates.map((tpl) => {
+              const active = selectedTemplates.includes(tpl.id)
+              return (
+                <button
+                  key={tpl.id}
+                  onClick={() =>
+                    setSelectedTemplates(
+                      active
+                        ? selectedTemplates.filter((x) => x !== tpl.id)
+                        : [...selectedTemplates, tpl.id],
+                    )
+                  }
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
+                    active
+                      ? "bg-tomato-500 text-white border-tomato-500"
+                      : "bg-white text-stone-700 border-dough-300"
+                  }`}
+                >
+                  📐 {tpl.name}
                 </button>
               )
             })}
