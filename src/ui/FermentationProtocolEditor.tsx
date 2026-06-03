@@ -10,7 +10,7 @@ import {
   type YeastAmount,
   type YeastType,
 } from "../domain/Yeast.ts"
-import { convertYeast } from "../calc/yeastConvert.ts"
+import { convertYeast, convertYeastPct } from "../calc/yeastConvert.ts"
 import {
   deriveYeastDefault,
   FERMENTATION_MAX_C,
@@ -120,6 +120,31 @@ export const draftToRecipeYeast = (draft: YeastDraft): Either.Either<RecipeYeast
 
 const round1 = (v: number): number => Math.round(v * 10) / 10
 
+const shortYeastLabel: Record<YeastType, string> = {
+  fresh: "fraîche",
+  "active-dry": "sèche active",
+  "instant-dry": "sèche inst.",
+}
+
+// The manual value expressed in the other two yeast types, for cross-reference.
+const YeastEquivalents = ({
+  type,
+  value,
+  unit,
+}: {
+  type: YeastType
+  value: number
+  unit: "%" | "g"
+}): JSX.Element => (
+  <p className="text-xs text-stone-500 -mt-1">
+    Équivalent :{" "}
+    {allYeastTypes
+      .filter((t) => t !== type)
+      .map((t) => `${convertYeastPct(value, type, t)} ${unit} ${shortYeastLabel[t]}`)
+      .join(" · ")}
+  </p>
+)
+
 export const FermentationProtocolEditor = ({
   draft,
   onChange,
@@ -132,13 +157,15 @@ export const FermentationProtocolEditor = ({
   totalFlourGrams?: number
 }): JSX.Element => {
   const onTypeChange = (type: YeastType): void => {
-    // Manual grams convert on type change (parity with the old direct-entry UX).
-    if (draft.mode === "manual" && manualKind === "grams" && draft.manual !== "" && draft.manual > 0) {
-      const converted = convertYeast(
-        { type: draft.type, grams: draft.manual as PositiveNumber },
-        type,
-      )
-      onChange({ ...draft, type, manual: converted.grams as number })
+    // Manual value (grams OR %) converts on type change so the dough keeps the
+    // same effective yeast power — intuitive cross-referencing of yeast tables.
+    if (draft.mode === "manual" && draft.manual !== "" && draft.manual > 0) {
+      const converted =
+        manualKind === "grams"
+          ? (convertYeast({ type: draft.type, grams: draft.manual as PositiveNumber }, type)
+              .grams as number)
+          : convertYeastPct(draft.manual, draft.type, type)
+      onChange({ ...draft, type, manual: converted })
       return
     }
     onChange({ ...draft, type })
@@ -186,9 +213,16 @@ export const FermentationProtocolEditor = ({
           <NumberInput
             value={draft.manual}
             onChange={(v) => onChange({ ...draft, manual: v })}
-            step={manualKind === "pct" ? 0.01 : 0.01}
+            step={0.01}
             min={0}
           />
+          {draft.manual !== "" && draft.manual > 0 ? (
+            <YeastEquivalents
+              type={draft.type}
+              value={draft.manual}
+              unit={manualKind === "pct" ? "%" : "g"}
+            />
+          ) : null}
         </FormField>
       ) : (
         <div className="flex flex-col gap-2">

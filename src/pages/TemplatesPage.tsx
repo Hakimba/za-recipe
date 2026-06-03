@@ -52,6 +52,18 @@ export const TemplatesPage = (): JSX.Element => {
                           onSome: (s) => ` · ${s}% sel`,
                         })}
                       </p>
+                      {t.tags.length > 0 ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {t.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-dough-100 px-2 py-0.5 text-xs text-stone-600"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                     <span className="text-stone-400">›</span>
                   </div>

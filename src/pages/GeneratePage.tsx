@@ -194,7 +194,13 @@ export const GeneratePage = (): JSX.Element => {
           ) : (
             <Select
               value={selectedId === "" ? "" : (selectedId as string)}
-              onChange={(v) => setSelectedId(v === "" ? "" : (v as TemplateId))}
+              onChange={(v) => {
+                const id = v === "" ? "" : (v as TemplateId)
+                setSelectedId(id)
+                // Generated recipe inherits the template's tags as an editable copy.
+                const t = templates.find((tpl) => tpl.id === id)
+                setSaveTags(t !== undefined ? t.tags.join(", ") : "")
+              }}
               options={[
                 { value: "", label: "— Choisir un template —" },
                 ...templates.map((t) => ({ value: t.id as string, label: t.name })),

@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { Iso8601, PositivePercentage, TemplateId } from "./Brands.ts"
+import { Iso8601, PositivePercentage, Tag, TemplateId } from "./Brands.ts"
 import { TemplateYeast } from "./Yeast.ts"
 
 export const TemplateExtra = Schema.Struct({
@@ -17,6 +17,9 @@ export const Template = Schema.Struct({
   sugarPct: Schema.OptionFromNullishOr(PositivePercentage, null),
   oliveOilPct: Schema.OptionFromNullishOr(PositivePercentage, null),
   extras: Schema.Array(TemplateExtra),
+  // Added after launch: templates saved before this carry no `tags` key, which
+  // decodes to []. Recipes generated from a template inherit these as a copy.
+  tags: Schema.optionalWith(Schema.Array(Tag), { default: () => [], nullable: true }),
   createdAt: Iso8601,
   updatedAt: Iso8601,
 })

@@ -8,10 +8,11 @@ import {
 } from "../calc/prefermentSplit.ts"
 import { deriveYeastDefault } from "../calc/fermentation.ts"
 import { resolveRecipeYeast } from "../calc/resolveYeast.ts"
+import { templateFromRecipe } from "../calc/templateFromRecipe.ts"
 import type { Recipe, SourceTemplate } from "../domain/Recipe.ts"
 import { totalFlour } from "../domain/Recipe.ts"
 import { PrefermentTypeLabel } from "../domain/Preferment.ts"
-import { nowIso } from "../persistence/Id.ts"
+import { makeTemplateId, nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
 import { TemplateRepository } from "../persistence/TemplateRepository.ts"
 import { runPromiseExit } from "../runtime/Runtime.ts"
@@ -111,6 +112,25 @@ export const RecipeDetailPage = (): JSX.Element => {
     if (Exit.isSuccess(exit)) refetch()
   }
 
+  // Reverse of generation: turn this gram recipe into a reusable baker's-%
+  // template, then jump to the new template's editor to rename/tweak.
+  const onCreateTemplate = async (): Promise<void> => {
+    const draft = templateFromRecipe(r)
+    if (Either.isLeft(draft)) return
+    setSaving(true)
+    const exit = await runPromiseExit(
+      Effect.gen(function* () {
+        const repo = yield* TemplateRepository
+        const id = yield* makeTemplateId
+        const now = (yield* nowIso) as Recipe["createdAt"]
+        yield* repo.save({ ...draft.right, id, createdAt: now, updatedAt: now })
+        return id
+      }),
+    )
+    setSaving(false)
+    if (Exit.isSuccess(exit)) navigate({ to: "/templates/$id", params: { id: exit.value } })
+  }
+
   const tf = totalFlour(r.flours)
 
   const resolvedYeast = resolveRecipeYeast(r.yeast, tf)
@@ -173,6 +193,9 @@ export const RecipeDetailPage = (): JSX.Element => {
             Crée un template pour pouvoir l'associer à cette recette.
           </p>
         )}
+        <Button variant="secondary" onClick={() => void onCreateTemplate()} disabled={saving}>
+          Créer un template à partir de cette recette
+        </Button>
       </Card>
 
       <Card className="flex flex-col">

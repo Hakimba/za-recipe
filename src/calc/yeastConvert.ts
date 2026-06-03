@@ -19,3 +19,8 @@ export const convertYeast = (amount: YeastAmount, to: YeastType): YeastAmount =>
   type: to,
   grams: round(convertYeastGrams(amount.grams, amount.type, to), 3) as YeastAmount["grams"],
 })
+
+// A baker's % scales between yeast types exactly like grams (both are
+// proportional to the same fresh-equivalent mass).
+export const convertYeastPct = (pct: number, from: YeastType, to: YeastType): number =>
+  round(convertYeastGrams(pct, from, to), 3)
