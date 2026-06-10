@@ -1,8 +1,10 @@
 import { Either, Option } from "effect"
 import { describe, expect, it } from "vitest"
-import type { Percentage } from "../domain/Brands.ts"
+import type { Celsius, Percentage, PositiveNumber } from "../domain/Brands.ts"
+import type { FermentationProtocol } from "../domain/Fermentation.ts"
 import type { PrefermentSpec } from "../domain/Preferment.ts"
-import type { YeastAmount } from "../domain/Yeast.ts"
+import type { YeastAmount, YeastType } from "../domain/Yeast.ts"
+import { deriveYeastDefault } from "./fermentation.ts"
 import {
   equivalentYeastPctOnPrefermentFlour,
   splitWithPreferment,
@@ -10,10 +12,23 @@ import {
 } from "./prefermentSplit.ts"
 
 const pct = (n: number): Percentage => n as Percentage
+const round1 = (v: number): number => Math.round(v * 10) / 10
+const protocolYeast = (
+  type: YeastType,
+  phases: ReadonlyArray<{ temperatureC: number; hours: number }>,
+) => ({
+  _tag: "Protocol" as const,
+  type,
+  phases: phases.map((p) => ({
+    temperatureC: p.temperatureC as Celsius,
+    hours: p.hours as PositiveNumber,
+  })) as unknown as FermentationProtocol,
+})
 const yeast = (grams: number): YeastAmount => ({
   type: "fresh",
   grams: grams as YeastAmount["grams"],
 })
+const manual = (n: number) => ({ _tag: "Manual" as const, yeastPctOfTotalYeast: pct(n) })
 
 // Recipe baseline: 500 g flour, 65% hydration (325 g water), 0.3% yeast (1.5 g), 2.5% salt (12.5 g)
 const baseRecipe: SplittableRecipe = {
@@ -31,7 +46,7 @@ describe("splitWithPreferment — biga (hydratation 45%)", () => {
     const spec: PrefermentSpec = {
       type: "biga",
       flourPct: pct(50),
-      yeastPctOfTotalYeast: pct(50),
+      yeast: manual(50),
     }
     const result = splitWithPreferment(baseRecipe, spec)
     if (Either.isLeft(result)) throw new Error("expected Right")
@@ -51,7 +66,7 @@ describe("splitWithPreferment — biga (hydratation 45%)", () => {
     const spec: PrefermentSpec = {
       type: "biga",
       flourPct: pct(70),
-      yeastPctOfTotalYeast: pct(30),
+      yeast: manual(30),
     }
     const result = splitWithPreferment(baseRecipe, spec)
     if (Either.isLeft(result)) throw new Error("expected Right")
@@ -68,7 +83,7 @@ describe("splitWithPreferment — biga (hydratation 45%)", () => {
     const spec: PrefermentSpec = {
       type: "biga",
       flourPct: pct(40),
-      yeastPctOfTotalYeast: pct(60),
+      yeast: manual(60),
     }
     const result = splitWithPreferment(baseRecipe, spec)
     if (Either.isLeft(result)) throw new Error("expected Right")
@@ -85,7 +100,7 @@ describe("splitWithPreferment — biga (hydratation 45%)", () => {
     const spec: PrefermentSpec = {
       type: "biga",
       flourPct: pct(30),
-      yeastPctOfTotalYeast: pct(50),
+      yeast: manual(50),
     }
     const result = splitWithPreferment(
       { ...baseRecipe, totalYeast: { type: "instant-dry", grams: 1 as YeastAmount["grams"] } },
@@ -100,7 +115,7 @@ describe("splitWithPreferment — biga (hydratation 45%)", () => {
     const spec: PrefermentSpec = {
       type: "biga",
       flourPct: pct(50),
-      yeastPctOfTotalYeast: pct(0),
+      yeast: manual(0),
     }
     const result = splitWithPreferment(baseRecipe, spec)
     if (Either.isLeft(result)) throw new Error("expected Right")
@@ -114,7 +129,7 @@ describe("splitWithPreferment — poolish (hydratation 100%)", () => {
     const spec: PrefermentSpec = {
       type: "poolish",
       flourPct: pct(30),
-      yeastPctOfTotalYeast: pct(25),
+      yeast: manual(25),
     }
     const result = splitWithPreferment(baseRecipe, spec)
     if (Either.isLeft(result)) throw new Error("expected Right")
@@ -136,7 +151,7 @@ describe("splitWithPreferment — validation", () => {
     const spec: PrefermentSpec = {
       type: "poolish",
       flourPct: pct(60),
-      yeastPctOfTotalYeast: pct(20),
+      yeast: manual(20),
     }
     const result = splitWithPreferment(recipe, spec)
     expect(Either.isLeft(result)).toBe(true)
@@ -150,12 +165,90 @@ describe("splitWithPreferment — validation", () => {
     const spec: PrefermentSpec = {
       type: "biga",
       flourPct: pct(100),
-      yeastPctOfTotalYeast: pct(50),
+      yeast: manual(50),
     }
     const result = splitWithPreferment(baseRecipe, spec)
     if (Either.isLeft(result)) throw new Error("expected Right")
     expect(result.right.preferment.flour).toBe(500)
     expect(result.right.refresh.flour).toBe(0)
+  })
+})
+
+describe("splitWithPreferment — préferment piloté par protocole (TXCraig)", () => {
+  it("dérive la levure du préferment sur la farine du préferment, rafraîchi = total − préferment", () => {
+    // Poolish 30% farine (150 g) fermenté 12 h à 20 °C. Levure dérivée sur les 150 g.
+    const phases = [{ temperatureC: 20, hours: 12 }]
+    const spec: PrefermentSpec = {
+      type: "poolish",
+      flourPct: pct(30),
+      yeast: protocolYeast("fresh", phases),
+    }
+    const derived = deriveYeastDefault(
+      "fresh",
+      phases.map((p) => ({ temperatureC: p.temperatureC as Celsius, hours: p.hours as PositiveNumber })),
+    )
+    if (Either.isLeft(derived)) throw new Error("baseline derive should converge")
+    const expectedPrefGrams = round1(150 * (derived.right.pct / 100))
+
+    const result = splitWithPreferment(baseRecipe, spec)
+    if (Either.isLeft(result)) throw new Error("expected Right")
+    const { preferment, refresh } = result.right
+
+    expect(preferment.flour).toBe(150)
+    expect(preferment.water).toBe(150) // poolish 100% hydratation
+    expect(preferment.yeast.grams).toBe(expectedPrefGrams)
+    // refresh = 1.5 − préferment (même type de levure), arrondi à 0.1 g.
+    expect(refresh.yeast.grams).toBe(round1(baseRecipe.totalYeast.grams - expectedPrefGrams))
+    expect(preferment.yeast.type).toBe("fresh")
+  })
+
+  it("rejette si la levure dérivée du préferment dépasse la levure totale", () => {
+    // Très peu de levure totale, grosse part de farine préfermentée → la dérivation
+    // produit plus de levure que la recette n'en contient.
+    // biga (45% hydratation) pour que l'eau reste sous la limite et que ce soit
+    // bien la levure dérivée qui dépasse.
+    const recipe: SplittableRecipe = { ...baseRecipe, totalYeast: yeast(0.05) }
+    const spec: PrefermentSpec = {
+      type: "biga",
+      flourPct: pct(80),
+      yeast: protocolYeast("fresh", [{ temperatureC: 20, hours: 12 }]),
+    }
+    const result = splitWithPreferment(recipe, spec)
+    expect(Either.isLeft(result)).toBe(true)
+    if (Either.isRight(result)) return
+    expect(result.left._tag).toBe("PrefermentExceedsRecipe")
+    if (result.left._tag !== "PrefermentExceedsRecipe") return
+    expect(result.left.resource).toBe("yeast")
+  })
+
+  it("propage l'erreur d'un protocole hors plage de température", () => {
+    const spec: PrefermentSpec = {
+      type: "poolish",
+      flourPct: pct(30),
+      yeast: protocolYeast("fresh", [{ temperatureC: 50, hours: 2 }]), // > 35 °C, hors table
+    }
+    const result = splitWithPreferment(baseRecipe, spec)
+    expect(Either.isLeft(result)).toBe(true)
+    if (Either.isRight(result)) return
+    expect(result.left._tag).toBe("FermentationTempOutOfRange")
+  })
+
+  it("convertit la levure dérivée vers le type de levure de la recette", () => {
+    // Préferment en IDY, recette en fresh : préf + rafraîchi doivent sommer au total fresh.
+    const spec: PrefermentSpec = {
+      type: "poolish",
+      flourPct: pct(30),
+      yeast: protocolYeast("instant-dry", [{ temperatureC: 20, hours: 12 }]),
+    }
+    const result = splitWithPreferment(baseRecipe, spec)
+    if (Either.isLeft(result)) throw new Error("expected Right")
+    const { preferment, refresh } = result.right
+    expect(preferment.yeast.type).toBe("fresh")
+    expect(refresh.yeast.type).toBe("fresh")
+    expect(preferment.yeast.grams + refresh.yeast.grams).toBeCloseTo(
+      baseRecipe.totalYeast.grams,
+      1,
+    )
   })
 })
 

@@ -119,4 +119,39 @@ describe("legacy decode — Recipe", () => {
     if (r.yeast._tag !== "Manual") return
     expect(r.yeast.amount.type).toBe("instant-dry")
   })
+
+  it("wraps a flat preferment yeastPctOfTotalYeast into a Manual preferment yeast", () => {
+    const withFlatPreferment = {
+      ...legacyRecipeJson,
+      yeast: { _tag: "Manual", amount: { type: "fresh", grams: 1.5 } },
+      preferment: { type: "biga", flourPct: 50, yeastPctOfTotalYeast: 50 },
+    }
+    const r = decodeRecipe(withFlatPreferment)
+    expect(Option.isSome(r.preferment)).toBe(true)
+    if (Option.isNone(r.preferment)) return
+    expect(r.preferment.value.yeast._tag).toBe("Manual")
+    if (r.preferment.value.yeast._tag !== "Manual") return
+    expect(r.preferment.value.yeast.yeastPctOfTotalYeast).toBe(50)
+    expect(r.preferment.value.flourPct).toBe(50)
+  })
+
+  it("leaves a modern (union) preferment yeast untouched", () => {
+    const withProtocolPreferment = {
+      ...legacyRecipeJson,
+      yeast: { _tag: "Manual", amount: { type: "fresh", grams: 1.5 } },
+      preferment: {
+        type: "poolish",
+        flourPct: 30,
+        yeast: {
+          _tag: "Protocol",
+          type: "fresh",
+          phases: [{ temperatureC: 20, hours: 12 }],
+        },
+      },
+    }
+    const r = decodeRecipe(withProtocolPreferment)
+    expect(Option.isSome(r.preferment)).toBe(true)
+    if (Option.isNone(r.preferment)) return
+    expect(r.preferment.value.yeast._tag).toBe("Protocol")
+  })
 })

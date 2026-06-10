@@ -15,15 +15,22 @@ import {
   PREFERMENT_HYDRATION,
   type PrefermentSpec,
   type PrefermentType,
+  type PrefermentYeast,
 } from "../domain/Preferment.ts"
 import type { Recipe } from "../domain/Recipe.ts"
 import type { Template } from "../domain/Template.ts"
+import { allYeastTypes, YeastTypeLabel, type YeastType } from "../domain/Yeast.ts"
 import { generateFromTemplate, type GeneratedRecipe } from "../calc/bakerPercent.ts"
 import {
   equivalentYeastPctOnPrefermentFlour,
   splitWithPreferment,
   type PrefermentSplit,
 } from "../calc/prefermentSplit.ts"
+import {
+  FermentationPhasesEditor,
+  phasesToProtocol,
+  type ProtocolPhaseDraft,
+} from "../ui/FermentationProtocolEditor.tsx"
 import { makeRecipeId, nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
 import { TemplateRepository } from "../persistence/TemplateRepository.ts"
@@ -56,17 +63,33 @@ export const GeneratePage = (): JSX.Element => {
   const [prefermentType, setPrefermentType] = useState<PrefermentType>("biga")
   const [flourPct, setFlourPct] = useState<number | "">(50)
   const [yeastPct, setYeastPct] = useState<number | "">(50)
+  // The preferment's yeast: a manual share of total yeast, or derived from the
+  // preferment's own fermentation schedule (TXCraig on the preferment flour).
+  const [prefermentYeastMode, setPrefermentYeastMode] = useState<"manual" | "protocol">("manual")
+  const [prefermentYeastType, setPrefermentYeastType] = useState<YeastType>("fresh")
+  const [prefermentPhases, setPrefermentPhases] = useState<ReadonlyArray<ProtocolPhaseDraft>>([
+    { temperatureC: 20, hours: 12 },
+  ])
 
   const templates = templatesState.status === "ready" ? templatesState.data : []
   const selected: Template | undefined = templates.find((t) => t.id === selectedId)
-
-  // Preferment isn't yet compatible with a protocol-derived template.
-  const usesProtocol = selected !== undefined && selected.yeast._tag === "Protocol"
 
   const totalFlour = flours.reduce(
     (sum, f) => sum + (f.grams === "" ? 0 : f.grams),
     0,
   )
+
+  // Build the preferment-yeast union from the current inputs. undefined = inputs
+  // incomplete; Left = the preferment protocol doesn't converge (message shown).
+  const buildPrefermentYeast = (): Either.Either<PrefermentYeast, string> | undefined => {
+    if (prefermentYeastMode === "manual") {
+      if (yeastPct === "" || yeastPct < 0 || yeastPct > 100) return undefined
+      return Either.right({ _tag: "Manual", yeastPctOfTotalYeast: yeastPct as Percentage })
+    }
+    return phasesToProtocol(prefermentYeastType, prefermentPhases).pipe(
+      Either.map((phases) => ({ _tag: "Protocol", type: prefermentYeastType, phases })),
+    )
+  }
 
   const generated: Either.Either<GeneratedRecipe, unknown> | undefined =
     selected !== undefined && totalFlour > 0
@@ -90,20 +113,25 @@ export const GeneratePage = (): JSX.Element => {
     if (
       generatedRecipe === undefined ||
       !prefermentOn ||
-      usesProtocol ||
       flourPct === "" ||
-      yeastPct === "" ||
       flourPct < 0 ||
-      flourPct > 100 ||
-      yeastPct < 0 ||
-      yeastPct > 100
+      flourPct > 100
     ) {
       return undefined
+    }
+    let yeast: PrefermentYeast
+    if (prefermentYeastMode === "manual") {
+      if (yeastPct === "" || yeastPct < 0 || yeastPct > 100) return undefined
+      yeast = { _tag: "Manual", yeastPctOfTotalYeast: yeastPct as Percentage }
+    } else {
+      const proto = phasesToProtocol(prefermentYeastType, prefermentPhases)
+      if (Either.isLeft(proto)) return undefined
+      yeast = { _tag: "Protocol", type: prefermentYeastType, phases: proto.right }
     }
     const spec: PrefermentSpec = {
       type: prefermentType,
       flourPct: flourPct as Percentage,
-      yeastPctOfTotalYeast: yeastPct as Percentage,
+      yeast,
     }
     return splitWithPreferment(
       {
@@ -117,7 +145,16 @@ export const GeneratePage = (): JSX.Element => {
       },
       spec,
     )
-  }, [generatedRecipe, prefermentOn, prefermentType, flourPct, yeastPct, usesProtocol])
+  }, [
+    generatedRecipe,
+    prefermentOn,
+    prefermentType,
+    flourPct,
+    yeastPct,
+    prefermentYeastMode,
+    prefermentYeastType,
+    prefermentPhases,
+  ])
 
   const [saveName, setSaveName] = useState("")
   const [saveTags, setSaveTags] = useState("")
@@ -127,6 +164,16 @@ export const GeneratePage = (): JSX.Element => {
   const onSave = async (): Promise<void> => {
     if (selected === undefined || generatedRecipe === undefined) return
     if (saveName.trim() === "") return setSaveErr("Le nom est requis")
+    const prefermentYeast = prefermentOn ? buildPrefermentYeast() : undefined
+    if (prefermentOn) {
+      if (flourPct === "" || flourPct < 0 || flourPct > 100) {
+        return setSaveErr("Le % de farine du préferment est invalide")
+      }
+      if (prefermentYeast === undefined) {
+        return setSaveErr("Renseigne la levure du préferment")
+      }
+      if (Either.isLeft(prefermentYeast)) return setSaveErr(prefermentYeast.left)
+    }
     if (prefermentOn && split !== undefined && Either.isLeft(split)) {
       return setSaveErr("Le preferment dépasse la recette — ajuste avant d'enregistrer")
     }
@@ -138,11 +185,11 @@ export const GeneratePage = (): JSX.Element => {
         const id = (yield* makeRecipeId) as RecipeId
         const now = (yield* nowIso) as Iso8601
         const prefermentSpec: Option.Option<PrefermentSpec> =
-          prefermentOn && !usesProtocol && flourPct !== "" && yeastPct !== ""
+          prefermentOn && prefermentYeast !== undefined && Either.isRight(prefermentYeast)
             ? Option.some({
                 type: prefermentType,
                 flourPct: flourPct as Percentage,
-                yeastPctOfTotalYeast: yeastPct as Percentage,
+                yeast: prefermentYeast.right,
               })
             : Option.none()
         const recipe: Recipe = {
@@ -262,25 +309,14 @@ export const GeneratePage = (): JSX.Element => {
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={prefermentOn && !usesProtocol}
-            disabled={usesProtocol}
+            checked={prefermentOn}
             onChange={(e) => setPrefermentOn(e.target.checked)}
             className="w-5 h-5"
           />
-          <span className={`font-medium ${usesProtocol ? "text-stone-400" : ""}`}>
-            Utiliser un preferment
-          </span>
+          <span className="font-medium">Utiliser un preferment</span>
         </label>
 
-        {usesProtocol ? (
-          <p className="text-xs text-stone-500 bg-dough-100 rounded-lg px-3 py-2">
-            Ce template utilise un protocole de fermentation. Le calcul de preferment n'est pas
-            encore compatible avec un protocole — choisis un template à levure manuelle pour
-            utiliser un preferment.
-          </p>
-        ) : null}
-
-        {prefermentOn && !usesProtocol ? (
+        {prefermentOn ? (
           <>
             <FormField label="Type de preferment">
               <Select
@@ -296,32 +332,66 @@ export const GeneratePage = (): JSX.Element => {
               label="% de farine en preferment"
               hint={`Hydratation du ${PrefermentTypeLabel[prefermentType]} : ${PREFERMENT_HYDRATION[prefermentType]}%`}
             >
-              <NumberInput
-                value={flourPct}
-                onChange={setFlourPct}
-                step={1}
-                min={0}
-                max={100}
-              />
+              <NumberInput value={flourPct} onChange={setFlourPct} step={1} min={0} max={100} />
             </FormField>
-            <FormField
-              label="% de la levure totale dans le préferment"
-              hint="0 à 100. Ex : 50 = la moitié de la levure de la recette va dans le préferment."
-            >
-              <NumberInput
-                value={yeastPct}
-                onChange={setYeastPct}
-                step={1}
-                min={0}
-                max={100}
-              />
-            </FormField>
-            <EquivalentPreview
-              totalFlour={generatedRecipe?.totalFlour}
-              totalYeast={generatedRecipe?.yeast.grams}
-              flourPct={flourPct}
-              yeastPct={yeastPct}
-            />
+
+            <div className="flex gap-2">
+              <Button
+                variant={prefermentYeastMode === "manual" ? "primary" : "secondary"}
+                onClick={() => setPrefermentYeastMode("manual")}
+                className="flex-1"
+              >
+                % de la levure totale
+              </Button>
+              <Button
+                variant={prefermentYeastMode === "protocol" ? "primary" : "secondary"}
+                onClick={() => setPrefermentYeastMode("protocol")}
+                className="flex-1"
+              >
+                Protocole auto
+              </Button>
+            </div>
+
+            {prefermentYeastMode === "manual" ? (
+              <>
+                <FormField
+                  label="% de la levure totale dans le préferment"
+                  hint="0 à 100. Ex : 50 = la moitié de la levure de la recette va dans le préferment."
+                >
+                  <NumberInput value={yeastPct} onChange={setYeastPct} step={1} min={0} max={100} />
+                </FormField>
+                <EquivalentPreview
+                  totalFlour={generatedRecipe?.totalFlour}
+                  totalYeast={generatedRecipe?.yeast.grams}
+                  flourPct={flourPct}
+                  yeastPct={yeastPct}
+                />
+              </>
+            ) : (
+              <>
+                <FormField label="Type de levure du préferment">
+                  <Select
+                    value={prefermentYeastType}
+                    onChange={setPrefermentYeastType}
+                    options={allYeastTypes.map((t) => ({ value: t, label: YeastTypeLabel[t] }))}
+                  />
+                </FormField>
+                <FermentationPhasesEditor
+                  phases={prefermentPhases}
+                  type={prefermentYeastType}
+                  onChange={setPrefermentPhases}
+                  {...(generatedRecipe !== undefined && flourPct !== ""
+                    ? { totalFlourGrams: generatedRecipe.totalFlour * (flourPct / 100) }
+                    : {})}
+                />
+                <p className="text-xs text-stone-500 bg-dough-100 rounded-lg px-3 py-2">
+                  Le protocole du préferment et celui de la pâte finale (template) sont deux
+                  horloges distinctes : l'horaire ci-dessus dimensionne la levure du préferment
+                  seul. La levure du rafraîchi = levure totale − levure du préferment. Le
+                  préferment fermente sans sel — un peu plus vite que ne le prédit la table.
+                </p>
+              </>
+            )}
           </>
         ) : null}
       </Card>
