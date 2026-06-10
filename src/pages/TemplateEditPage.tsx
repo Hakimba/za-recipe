@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "@tanstack/react-router"
 import { Effect, Exit, Option } from "effect"
 import { useEffect, useState } from "react"
 import { Either } from "effect"
-import type { PositivePercentage, TemplateId } from "../domain/Brands.ts"
+import type { PositivePercentage, Tag, TemplateId } from "../domain/Brands.ts"
 import type { Template, TemplateExtra } from "../domain/Template.ts"
 import { makeTemplateId, nowIso } from "../persistence/Id.ts"
 import { TemplateRepository } from "../persistence/TemplateRepository.ts"
@@ -32,6 +32,7 @@ type FormState = {
   sugarPct: number | ""
   oliveOilPct: number | ""
   extras: ReadonlyArray<{ name: string; pct: number | "" }>
+  tags: string
 }
 
 const empty: FormState = {
@@ -42,6 +43,7 @@ const empty: FormState = {
   sugarPct: "",
   oliveOilPct: "",
   extras: [],
+  tags: "",
 }
 
 const fromTemplate = (t: Template): FormState => ({
@@ -52,6 +54,7 @@ const fromTemplate = (t: Template): FormState => ({
   sugarPct: Option.getOrElse(t.sugarPct, () => "" as const) as number | "",
   oliveOilPct: Option.getOrElse(t.oliveOilPct, () => "" as const) as number | "",
   extras: t.extras.map((e) => ({ name: e.name, pct: e.pct as number })),
+  tags: t.tags.join(", "),
 })
 
 const optPositive = (v: number | ""): Option.Option<PositivePercentage> =>
@@ -125,6 +128,10 @@ export const TemplateEditPage = (): JSX.Element => {
                 pct: e.pct as PositivePercentage,
               }),
             ),
+          tags: form.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter((t) => t !== "") as unknown as ReadonlyArray<Tag>,
           createdAt: previous,
           updatedAt: now,
         }
@@ -260,6 +267,16 @@ export const TemplateEditPage = (): JSX.Element => {
             </ul>
           )}
         </div>
+
+        <FormField
+          label="Tags"
+          hint="Séparés par virgule (ex: napoletana, four à bois). Hérités par les recettes générées."
+        >
+          <TextInput
+            value={form.tags}
+            onChange={(e) => setForm({ ...form, tags: e.target.value })}
+          />
+        </FormField>
 
         {error !== "" ? (
           <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">{error}</p>

@@ -23,16 +23,56 @@ export class BackupParseError extends Data.TaggedError("BackupParseError")<{
 const encodeBackup = Schema.encode(Backup)
 const decodeBackupSchema = Schema.decodeUnknown(Backup)
 
-// Normalize legacy yeast shapes inside an imported backup before decoding.
+const asRecord = (raw: unknown): Record<string, unknown> | undefined =>
+  typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : undefined
+
+const stringTags = (raw: unknown): ReadonlyArray<string> => {
+  const rec = asRecord(raw)
+  const t = rec?.["tags"]
+  return Array.isArray(t) ? t.filter((x): x is string => typeof x === "string") : []
+}
+
+// A generated recipe (has sourceTemplate) takes its tags from the template it
+// came from — but only when that template actually carries tags. An older
+// template with no tags must never wipe a recipe's own tags (regression guard).
+const reconcileRecipeTags = (
+  recipe: unknown,
+  tagsByTemplateId: ReadonlyMap<string, ReadonlyArray<string>>,
+): unknown => {
+  const rec = asRecord(recipe)
+  if (rec === undefined) return recipe
+  const id = asRecord(rec["sourceTemplate"])?.["id"]
+  if (typeof id !== "string") return recipe
+  const tags = tagsByTemplateId.get(id)
+  return tags === undefined ? recipe : { ...rec, tags }
+}
+
+// Normalize legacy yeast shapes inside an imported backup, then reconcile the
+// tags of generated recipes against their source template.
 const normalizeBackup = (raw: unknown): unknown => {
-  if (typeof raw !== "object" || raw === null) return raw
-  const r = raw as Record<string, unknown>
+  const r = asRecord(raw)
+  if (r === undefined) return raw
   const mapArr = (v: unknown, f: (x: unknown) => unknown): unknown =>
     Array.isArray(v) ? v.map(f) : v
+
+  const templates = mapArr(r["templates"], normalizeLegacyTemplate)
+  const recipes = mapArr(r["recipes"], normalizeLegacyRecipe)
+
+  const tagsByTemplateId = new Map<string, ReadonlyArray<string>>()
+  if (Array.isArray(templates)) {
+    for (const t of templates) {
+      const id = asRecord(t)?.["id"]
+      const tags = stringTags(t)
+      if (typeof id === "string" && tags.length > 0) tagsByTemplateId.set(id, tags)
+    }
+  }
+
   return {
     ...r,
-    recipes: mapArr(r["recipes"], normalizeLegacyRecipe),
-    templates: mapArr(r["templates"], normalizeLegacyTemplate),
+    recipes: Array.isArray(recipes)
+      ? recipes.map((rec) => reconcileRecipeTags(rec, tagsByTemplateId))
+      : recipes,
+    templates,
   }
 }
 

@@ -18,6 +18,7 @@ const templateBase: Template = {
   sugarPct: Option.none(),
   oliveOilPct: Option.none(),
   extras: [],
+  tags: [],
   createdAt: "2026-05-28T10:00:00Z" as Iso8601,
   updatedAt: "2026-05-28T10:00:00Z" as Iso8601,
 }

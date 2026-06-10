@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { YeastAmount } from "../domain/Yeast.ts"
-import { convertYeast, convertYeastGrams } from "./yeastConvert.ts"
+import { convertYeast, convertYeastGrams, convertYeastPct } from "./yeastConvert.ts"
 
 const amount = (type: YeastAmount["type"], grams: number): YeastAmount =>
   ({ type, grams }) as YeastAmount
@@ -57,5 +57,19 @@ describe("convertYeast (YeastAmount)", () => {
   it("rounds to 3 decimals", () => {
     const result = convertYeast(amount("fresh", 1), "instant-dry")
     expect(result.grams).toBe(0.33)
+  })
+})
+
+describe("convertYeastPct", () => {
+  it("returns the same % when from === to", () => {
+    expect(convertYeastPct(0.3, "fresh", "fresh")).toBe(0.3)
+  })
+
+  it("converts a fresh % to instant-dry % like grams (factor 0.33)", () => {
+    expect(convertYeastPct(0.3, "fresh", "instant-dry")).toBe(0.099)
+  })
+
+  it("rounds to 3 decimals", () => {
+    expect(convertYeastPct(1, "fresh", "active-dry")).toBe(0.4)
   })
 })

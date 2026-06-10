@@ -63,6 +63,16 @@ describe("legacy decode — Template", () => {
     if (t.yeast._tag !== "Manual") return
     expect(t.yeast.type).toBe("active-dry")
   })
+
+  it("defaults `tags` to [] for legacy templates (key absent)", () => {
+    const t = decodeTemplate(legacyTemplateJson)
+    expect(t.tags).toEqual([])
+  })
+
+  it("decodes present template tags", () => {
+    const t = decodeTemplate({ ...legacyTemplateJson, tags: ["napoletana", "biga"] })
+    expect(t.tags).toEqual(["napoletana", "biga"])
+  })
 })
 
 describe("legacy decode — Recipe", () => {
