@@ -246,29 +246,53 @@ export const RecipeDetailPage = (): JSX.Element => {
         </Card>
       ) : null}
 
+      {splitDisplay !== null && splitDisplay._tag === "Left" ? (
+        <Card className="mt-3 bg-red-50 border-red-200">
+          <p className="text-sm text-red-800">
+            Le préferment de cette recette n'est pas calculable : protocole hors plage, ou levure
+            du préferment supérieure à la levure totale.
+          </p>
+        </Card>
+      ) : null}
+
       {splitDisplay !== null && splitDisplay._tag === "Right" ? (
         <Card className="mt-3">
           <h3 className="font-semibold mb-2">
             {Option.match(r.preferment, {
               onNone: () => "Preferment",
               onSome: (s) =>
-                `${PrefermentTypeLabel[s.type]} (${s.flourPct}% farine · ${s.yeastPctOfTotalYeast}% levure)`,
+                s.yeast._tag === "Manual"
+                  ? `${PrefermentTypeLabel[s.type]} (${s.flourPct}% farine · ${s.yeast.yeastPctOfTotalYeast}% levure)`
+                  : `${PrefermentTypeLabel[s.type]} (${s.flourPct}% farine · protocole)`,
             })}
           </h3>
           {Option.match(r.preferment, {
             onNone: () => null,
             onSome: (s) => {
-              const eq = equivalentYeastPctOnPrefermentFlour({
-                totalFlour: tf,
-                totalYeast: yeastAmount.grams,
-                flourPct: s.flourPct,
-                yeastPctOfTotalYeast: s.yeastPctOfTotalYeast,
-              })
-              return Option.match(eq, {
-                onNone: () => null,
-                onSome: (v) => (
+              if (s.yeast._tag === "Manual") {
+                const eq = equivalentYeastPctOnPrefermentFlour({
+                  totalFlour: tf,
+                  totalYeast: yeastAmount.grams,
+                  flourPct: s.flourPct,
+                  yeastPctOfTotalYeast: s.yeast.yeastPctOfTotalYeast,
+                })
+                return Option.match(eq, {
+                  onNone: () => null,
+                  onSome: (v) => (
+                    <p className="text-xs text-stone-500 mb-2">
+                      ≈ {v.toFixed(3)}% de la farine du préferment
+                    </p>
+                  ),
+                })
+              }
+              const phases = s.yeast.phases
+              return Either.match(deriveYeastDefault(s.yeast.type, s.yeast.phases), {
+                onLeft: () => null,
+                onRight: (d) => (
                   <p className="text-xs text-stone-500 mb-2">
-                    ≈ {v.toFixed(3)}% de la farine du préferment
+                    Protocole :{" "}
+                    {phases.map((p) => `${p.hours} h à ${p.temperatureC} °C`).join(" · ")} → levure
+                    dérivée {d.pct.toFixed(3)}% de la farine du préferment
                   </p>
                 ),
               })

@@ -36,14 +36,28 @@ export type Recipe = Schema.Schema.Type<typeof Recipe>
 
 // Records saved before the yeast union existed carried a bare YeastAmount
 // ({type, grams}) in `yeast`. Wrap it as a Manual yeast. Pure, idempotent.
+// Likewise, preferments saved before the preferment-yeast union carried a flat
+// `yeastPctOfTotalYeast` — wrap it as a Manual preferment yeast.
 export const normalizeLegacyRecipe = (raw: unknown): unknown => {
   if (typeof raw !== "object" || raw === null) return raw
   const r = raw as Record<string, unknown>
-  const y = r["yeast"]
+  let next = r
+  const y = next["yeast"]
   if (typeof y === "object" && y !== null && !("_tag" in y)) {
-    return { ...r, yeast: { _tag: "Manual", amount: y } }
+    next = { ...next, yeast: { _tag: "Manual", amount: y } }
   }
-  return raw
+  const p = next["preferment"]
+  if (typeof p === "object" && p !== null) {
+    const pre = p as Record<string, unknown>
+    if (!("yeast" in pre) && "yeastPctOfTotalYeast" in pre) {
+      const { yeastPctOfTotalYeast, ...rest } = pre
+      next = {
+        ...next,
+        preferment: { ...rest, yeast: { _tag: "Manual", yeastPctOfTotalYeast } },
+      }
+    }
+  }
+  return next === r ? raw : next
 }
 
 export const totalFlour = (flours: ReadonlyArray<FlourComponent>): number =>

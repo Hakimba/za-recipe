@@ -57,19 +57,27 @@ export const recipeYeastToDraft = (y: RecipeYeast): YeastDraft =>
         phases: y.phases.map((p) => ({ temperatureC: p.temperatureC as number, hours: p.hours as number })),
       }
 
-const validPhases = (draft: YeastDraft): ReadonlyArray<FermentationPhase> =>
-  draft.phases
+const validPhasesOf = (
+  phases: ReadonlyArray<ProtocolPhaseDraft>,
+): ReadonlyArray<FermentationPhase> =>
+  phases
     .filter((p) => p.temperatureC !== "" && p.hours !== "" && p.hours > 0)
     .map((p) => ({
       temperatureC: (p.temperatureC as number) as Celsius,
       hours: (p.hours as number) as PositiveNumber,
     }))
 
-export const previewDerive = (draft: YeastDraft): Either.Either<DerivedYeast, unknown> | null => {
-  const phases = validPhases(draft)
-  if (phases.length === 0) return null
-  return deriveYeastDefault(draft.type, phases)
+const previewDeriveFromPhases = (
+  type: YeastType,
+  phases: ReadonlyArray<ProtocolPhaseDraft>,
+): Either.Either<DerivedYeast, unknown> | null => {
+  const valid = validPhasesOf(phases)
+  if (valid.length === 0) return null
+  return deriveYeastDefault(type, valid)
 }
+
+export const previewDerive = (draft: YeastDraft): Either.Either<DerivedYeast, unknown> | null =>
+  previewDeriveFromPhases(draft.type, draft.phases)
 
 const fermentationErrorMessage = (e: { _tag?: string; kind?: string }): string => {
   if (e._tag === "FermentationTempOutOfRange") {
@@ -83,18 +91,25 @@ const fermentationErrorMessage = (e: { _tag?: string; kind?: string }): string =
   return "Protocole non calculable."
 }
 
-// Validates that a protocol draft converges (derives a yeast), returning the
-// branded phases on success or a friendly message on failure.
-const validateProtocol = (draft: YeastDraft): Either.Either<FermentationProtocol, string> => {
-  const phases = validPhases(draft)
-  if (phases.length === 0) return Either.left("Au moins une phase de fermentation est requise")
-  return deriveYeastDefault(draft.type, phases).pipe(
+// Validates that a protocol (yeast type + phase drafts) converges, returning
+// the branded phases on success or a friendly message on failure. Exported so
+// the preferment's own protocol can be validated the same way.
+export const phasesToProtocol = (
+  type: YeastType,
+  phases: ReadonlyArray<ProtocolPhaseDraft>,
+): Either.Either<FermentationProtocol, string> => {
+  const valid = validPhasesOf(phases)
+  if (valid.length === 0) return Either.left("Au moins une phase de fermentation est requise")
+  return deriveYeastDefault(type, valid).pipe(
     Either.match({
       onLeft: (e) => Either.left(fermentationErrorMessage(e)),
-      onRight: () => Either.right(phases as unknown as FermentationProtocol),
+      onRight: () => Either.right(valid as unknown as FermentationProtocol),
     }),
   )
 }
+
+const validateProtocol = (draft: YeastDraft): Either.Either<FermentationProtocol, string> =>
+  phasesToProtocol(draft.type, draft.phases)
 
 // Builders: draft → domain yeast union. Protocol convergence is validated here.
 export const draftToTemplateYeast = (draft: YeastDraft): Either.Either<TemplateYeast, string> => {
@@ -145,6 +160,103 @@ const YeastEquivalents = ({
   </p>
 )
 
+// The phase list + "add phase" + live derived-yeast preview, decoupled from
+// the manual/protocol toggle. Reused for a template/recipe protocol and for a
+// preferment's own protocol (where totalFlourGrams is the preferment flour).
+export const FermentationPhasesEditor = ({
+  phases,
+  type,
+  onChange,
+  totalFlourGrams,
+}: {
+  phases: ReadonlyArray<ProtocolPhaseDraft>
+  type: YeastType
+  onChange: (phases: ReadonlyArray<ProtocolPhaseDraft>) => void
+  totalFlourGrams?: number
+}): JSX.Element => {
+  const setPhase = (i: number, patch: Partial<ProtocolPhaseDraft>): void =>
+    onChange(phases.map((p, idx) => (idx === i ? { ...p, ...patch } : p)))
+
+  const preview = previewDeriveFromPhases(type, phases)
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="font-medium text-stone-700 text-sm">Phases de fermentation</span>
+
+      <div className="flex gap-2 text-xs text-stone-500 px-1">
+        <span className="flex-1">Température (°C)</span>
+        <span className="flex-1">Durée (h)</span>
+        {phases.length > 1 ? <span className="w-11" /> : null}
+      </div>
+
+      <ul className="flex flex-col gap-2">
+        {phases.map((p, i) => (
+          <li key={i} className="flex gap-2 items-center">
+            <NumberInput
+              value={p.temperatureC}
+              onChange={(v) => setPhase(i, { temperatureC: v === "" ? "" : round1(v) })}
+              step={1}
+              placeholder="°C"
+            />
+            <NumberInput
+              value={p.hours}
+              onChange={(v) => setPhase(i, { hours: v === "" ? "" : round1(v) })}
+              step={1}
+              min={0}
+              placeholder="h"
+            />
+            {phases.length > 1 ? (
+              <Button
+                variant="ghost"
+                onClick={() => onChange(phases.filter((_, idx) => idx !== i))}
+              >
+                ✕
+              </Button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+
+      <Button
+        variant="secondary"
+        onClick={() => onChange([...phases, { temperatureC: "", hours: "" }])}
+      >
+        + Ajouter une phase
+      </Button>
+
+      {preview !== null ? (
+        Either.isRight(preview) ? (
+          <div className="rounded-lg bg-basil-500/10 border border-basil-500/30 p-3 text-sm">
+            <p className="font-semibold text-stone-800">
+              Levure dérivée : {preview.right.pct.toFixed(3)} %
+              {totalFlourGrams !== undefined && totalFlourGrams > 0
+                ? ` · ≈ ${round1(totalFlourGrams * (preview.right.pct / 100))} g`
+                : ""}
+            </p>
+            <p className="text-xs text-stone-600 mt-1">
+              Part de fermentation par phase :{" "}
+              {preview.right.phaseFractions
+                .map((f, i) => `P${i + 1} ${Math.round(f * 100)}%`)
+                .join(" · ")}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
+            {fermentationErrorMessage(preview.left as { _tag?: string; kind?: string })}
+          </p>
+        )
+      ) : null}
+
+      <p className="text-xs text-stone-500">
+        Modèle TXCraig1.{" "}
+        <Link to="/docs" className="underline text-tomato-700">
+          Voir la méthode
+        </Link>
+      </p>
+    </div>
+  )
+}
+
 export const FermentationProtocolEditor = ({
   draft,
   onChange,
@@ -170,13 +282,6 @@ export const FermentationProtocolEditor = ({
     }
     onChange({ ...draft, type })
   }
-
-  const setPhase = (i: number, patch: Partial<ProtocolPhaseDraft>): void => {
-    const next = draft.phases.map((p, idx) => (idx === i ? { ...p, ...patch } : p))
-    onChange({ ...draft, phases: next })
-  }
-
-  const preview = draft.mode === "protocol" ? previewDerive(draft) : null
 
   return (
     <div className="flex flex-col gap-3">
@@ -225,80 +330,12 @@ export const FermentationProtocolEditor = ({
           ) : null}
         </FormField>
       ) : (
-        <div className="flex flex-col gap-2">
-          <span className="font-medium text-stone-700 text-sm">
-            Phases de fermentation
-          </span>
-
-          <div className="flex gap-2 text-xs text-stone-500 px-1">
-            <span className="flex-1">Température (°C)</span>
-            <span className="flex-1">Durée (h)</span>
-            {draft.phases.length > 1 ? <span className="w-11" /> : null}
-          </div>
-
-          <ul className="flex flex-col gap-2">
-            {draft.phases.map((p, i) => (
-              <li key={i} className="flex gap-2 items-center">
-                <NumberInput
-                  value={p.temperatureC}
-                  onChange={(v) => setPhase(i, { temperatureC: v === "" ? "" : round1(v) })}
-                  step={1}
-                  placeholder="°C"
-                />
-                <NumberInput
-                  value={p.hours}
-                  onChange={(v) => setPhase(i, { hours: v === "" ? "" : round1(v) })}
-                  step={1}
-                  min={0}
-                  placeholder="h"
-                />
-                {draft.phases.length > 1 ? (
-                  <Button
-                    variant="ghost"
-                    onClick={() => onChange({ ...draft, phases: draft.phases.filter((_, idx) => idx !== i) })}
-                  >
-                    ✕
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-
-          <Button
-            variant="secondary"
-            onClick={() => onChange({ ...draft, phases: [...draft.phases, { temperatureC: "", hours: "" }] })}
-          >
-            + Ajouter une phase
-          </Button>
-
-          {preview !== null ? (
-            Either.isRight(preview) ? (
-              <div className="rounded-lg bg-basil-500/10 border border-basil-500/30 p-3 text-sm">
-                <p className="font-semibold text-stone-800">
-                  Levure dérivée : {preview.right.pct.toFixed(3)} %
-                  {totalFlourGrams !== undefined && totalFlourGrams > 0
-                    ? ` · ≈ ${round1(totalFlourGrams * (preview.right.pct / 100))} g`
-                    : ""}
-                </p>
-                <p className="text-xs text-stone-600 mt-1">
-                  Part de fermentation par phase :{" "}
-                  {preview.right.phaseFractions.map((f, i) => `P${i + 1} ${Math.round(f * 100)}%`).join(" · ")}
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
-                {fermentationErrorMessage(preview.left as { _tag?: string; kind?: string })}
-              </p>
-            )
-          ) : null}
-
-          <p className="text-xs text-stone-500">
-            Modèle TXCraig1.{" "}
-            <Link to="/docs" className="underline text-tomato-700">
-              Voir la méthode
-            </Link>
-          </p>
-        </div>
+        <FermentationPhasesEditor
+          phases={draft.phases}
+          type={draft.type}
+          onChange={(phases) => onChange({ ...draft, phases })}
+          {...(totalFlourGrams !== undefined ? { totalFlourGrams } : {})}
+        />
       )}
     </div>
   )

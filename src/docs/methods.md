@@ -190,3 +190,13 @@ Voulu : 4 h à 22 °C (72 °F), puis 48 h à 4 °C (40 °F). Quelle levure ?
 - Si le protocole **sur-fermente** même avec très peu de levure (trop long / trop chaud) ou **sous-fermente** même avec beaucoup de levure (trop court / trop froid), l'app refuse et l'explique.
 - La table donne un **point de départ**, pas une précision à l'heure près. La pâte ne change pas de température instantanément (passer de 4 °C à 22 °C prend du temps) ; plus une phase est courte, plus cet effet compte. Surveille les 8–12 dernières heures et ajuste.
 - En cas de doute, mieux vaut légèrement sur-fermenter que sous-fermenter.
+
+## 8. Préferment + protocole (deux entités)
+
+Tu peux piloter la levure d'un préferment par son **propre protocole** (ex. poolish 12 h à 20 °C) au lieu d'un simple pourcentage. Le calcul suit la convention établie : le préferment et la pâte finale sont **deux entités distinctes**, avec des horloges qui ne se chevauchent pas — l'horloge de la pâte finale démarre **au pétrissage**. Un préferment reposé 12 h ajouté à une pâte finale qui fermente 2 h donne « 2 h pour la pâte finale », pas 14 h. Il n'y a donc **pas de double comptage**.
+
+- **Levure du préferment** : la loi unique (§7) appliquée à l'horaire du préferment, sur **la farine du préferment** seule (c'est une mini-pâte sans sel).
+- **Levure totale** : dérivée du protocole de la pâte finale sur **la farine totale** (comme §7).
+- **Levure du rafraîchis** $= \text{totale} - \text{préferment}$. Si le préferment fournit déjà plus que le total, l'app le refuse (baisse la part de farine, allonge le repos ou baisse la température).
+
+Le préferment fermente **sans sel** : il va un peu plus vite que ne le prédit la table (calée sur une pâte salée). Comme toujours, c'est un point de départ — surveille et ajuste.

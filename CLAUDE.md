@@ -118,8 +118,16 @@ Based on **TXCraig1's yeast-prediction tables** (pizzamaking.com). Sources: `ass
 - Table `F(temp, yeast)` = hours to full fermentation. Rows = temp (35–95 °F integer grid, 1.7–35 °C). Columns = yeast in CY/ADY/IDY (CY 0.1 % = ADY 0.042 % = IDY 0.032 %). Range in °C is derived from the table via `FERMENTATION_MIN_C`/`FERMENTATION_MAX_C` (src/calc/fermentation.ts) — don't hardcode it.
 - **The one law** ("100 % tank"): `Σ_i hours_i / F(temp_i, yeast) = 1`. Solver lives in `src/calc/fermentation.ts` (`deriveYeast`: full interpolation — temp on the °F grid, yeast at the fraction=1 crossing). `src/calc/resolveYeast.ts` turns a `TemplateYeast`/`RecipeYeast` into a concrete %/grams; `generateFromTemplate` uses it.
 - Errors: `FermentationTempOutOfRange`, `FermentationUnreachable{under|overfermented}` (in `Errors.ts`).
-- UI: shared controlled `src/ui/FermentationProtocolEditor.tsx` (Manual/Protocol toggle, °C/°F unit, live derived value + per-phase %), used by TemplateEditPage and DirectEntryPage.
-- **Scope limit (current):** protocol derivation is only for templates/direct recipes **without preferment**. On GeneratePage, a protocol template **disables** the preferment section with a notice. Don't lift this without deciding the protocol×preferment semantics.
+- UI: shared controlled `src/ui/FermentationProtocolEditor.tsx` (Manual/Protocol toggle, °C/°F unit, live derived value + per-phase %), used by TemplateEditPage and DirectEntryPage. The phase list + live preview is extracted as `FermentationPhasesEditor` and reused for the preferment's own protocol on GeneratePage.
+
+### Preferment × fermentation protocol (two-entity TXCraig model)
+
+A preferment can now be driven by a protocol too — the restriction on protocol templates has been lifted. The preferment's yeast (`PrefermentYeast` union in `Preferment.ts`) is either `Manual` (`yeastPctOfTotalYeast`, original behaviour) or `Protocol` (its own `{ temperatureC, hours }` phases). The model follows the established PizzaBlab convention: **two separate entities**, no double-counting, because the final-dough fermentation clock starts at mixing.
+
+- **Preferment yeast** = `deriveYeast` on the preferment's own schedule, applied to the **preferment flour** (saltless mini-dough), then converted into the recipe's yeast type.
+- **Total yeast** = the template/recipe protocol on **total flour** (unchanged `generateFromTemplate`).
+- **Refresh yeast = total − preferment** (in `splitWithPreferment`); over-supply reuses `PrefermentExceedsRecipe.yeast`. A protocol that doesn't converge propagates the `Fermentation*` error.
+- Old recipes (flat `yeastPctOfTotalYeast` on the preferment) decode to `Manual` via `normalizeLegacyRecipe` — no DB version bump.
 
 ## What NOT to do
 

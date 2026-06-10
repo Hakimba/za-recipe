@@ -183,3 +183,40 @@ describe("Backup tag reconciliation on import", () => {
     expect(backup.recipes[0]!.tags).toEqual(["keep-me"])
   })
 })
+
+describe("Backup preferment compatibility", () => {
+  const RID = "44444444-4444-4444-8444-444444444444"
+
+  it("imports a legacy backup with a flat preferment (yeastPctOfTotalYeast)", async () => {
+    const recipe = {
+      ...encodedRecipe(RID, [], undefined),
+      preferment: { type: "biga", flourPct: 50, yeastPctOfTotalYeast: 50 },
+    }
+    const backup = await parse([recipe], [])
+    const pre = backup.recipes[0]!.preferment
+    expect(Option.isSome(pre)).toBe(true)
+    if (Option.isNone(pre)) return
+    expect(pre.value.yeast._tag).toBe("Manual")
+    if (pre.value.yeast._tag !== "Manual") return
+    expect(pre.value.yeast.yeastPctOfTotalYeast).toBe(50)
+  })
+
+  it("round-trips a recipe with a protocol-driven preferment", async () => {
+    const recipe = {
+      ...encodedRecipe(RID, [], undefined),
+      preferment: {
+        type: "poolish",
+        flourPct: 30,
+        yeast: { _tag: "Protocol", type: "fresh", phases: [{ temperatureC: 20, hours: 12 }] },
+      },
+    }
+    const backup = await parse([recipe], [])
+    const pre = backup.recipes[0]!.preferment
+    expect(Option.isSome(pre)).toBe(true)
+    if (Option.isNone(pre)) return
+    expect(pre.value.yeast._tag).toBe("Protocol")
+    if (pre.value.yeast._tag !== "Protocol") return
+    expect(pre.value.yeast.phases).toHaveLength(1)
+    expect(pre.value.yeast.phases[0]!.hours).toBe(12)
+  })
+})
