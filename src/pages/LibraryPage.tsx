@@ -6,7 +6,8 @@ import type { Recipe } from "../domain/Recipe.ts"
 import { nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
 import { runPromiseExit } from "../runtime/Runtime.ts"
-import { Button, Card, PageHeader, TextInput } from "../ui/primitives.tsx"
+import { Button, Card, PageHeader, Select, TextInput } from "../ui/primitives.tsx"
+import { formatIsoDate } from "../ui/format.ts"
 import { useEffectQuery } from "../ui/hooks.ts"
 
 const toggleFavoriteEffect = (id: RecipeId) =>
@@ -18,16 +19,21 @@ const toggleFavoriteEffect = (id: RecipeId) =>
     yield* repo.save({ ...maybe.value, favorite: !maybe.value.favorite, updatedAt: now })
   })
 
+// Marking tried stamps madeAt (kept if already set); un-marking clears it.
 const setTriedEffect = (id: RecipeId, tried: boolean) =>
   Effect.gen(function* () {
     const repo = yield* RecipeRepository
     const maybe = yield* repo.get(id)
     if (Option.isNone(maybe)) return
     const now = (yield* nowIso) as Recipe["updatedAt"]
-    yield* repo.save({ ...maybe.value, tried, updatedAt: now })
+    const madeAt = tried
+      ? Option.orElse(maybe.value.madeAt, () => Option.some(now))
+      : Option.none<Recipe["updatedAt"]>()
+    yield* repo.save({ ...maybe.value, tried, madeAt, updatedAt: now })
   })
 
 type TriedFilter = "all" | "tried" | "untried"
+type SortBy = "updated" | "created" | "made"
 
 export const LibraryPage = (): JSX.Element => {
   const navigate = useNavigate()
@@ -42,6 +48,7 @@ export const LibraryPage = (): JSX.Element => {
   const [selectedTags, setSelectedTags] = useState<ReadonlyArray<string>>([])
   const [selectedTemplates, setSelectedTemplates] = useState<ReadonlyArray<string>>([])
   const [minRating, setMinRating] = useState<number | "">("")
+  const [sortBy, setSortBy] = useState<SortBy>("updated")
 
   const recipes = state.status === "ready" ? state.data : []
 
@@ -100,8 +107,17 @@ export const LibraryPage = (): JSX.Element => {
               onSome: (v) => (v as number) >= minRating,
             }),
       )
-      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
-  }, [recipes, search, favoritesOnly, triedFilter, selectedTags, selectedTemplates, minRating])
+      .sort((a, b) => {
+        if (sortBy === "created") return a.createdAt < b.createdAt ? 1 : -1
+        if (sortBy === "made") {
+          // Recipes never made sort last; ties fall back to last-updated.
+          const am = Option.getOrElse(a.madeAt, () => "")
+          const bm = Option.getOrElse(b.madeAt, () => "")
+          if (am !== bm) return am < bm ? 1 : -1
+        }
+        return a.updatedAt < b.updatedAt ? 1 : -1
+      })
+  }, [recipes, search, favoritesOnly, triedFilter, selectedTags, selectedTemplates, minRating, sortBy])
 
   const onToggleFavorite = async (id: RecipeId): Promise<void> => {
     const exit = await runPromiseExit(toggleFavoriteEffect(id))
@@ -194,6 +210,18 @@ export const LibraryPage = (): JSX.Element => {
             })}
           </div>
         ) : null}
+        <label className="flex items-center gap-2 text-xs text-stone-700">
+          <span className="shrink-0">Trier par</span>
+          <Select
+            value={sortBy}
+            onChange={setSortBy}
+            options={[
+              { value: "updated", label: "Modifiée récemment" },
+              { value: "created", label: "Date de création" },
+              { value: "made", label: "Date de réalisation" },
+            ]}
+          />
+        </label>
         {allTemplates.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {allTemplates.map((tpl) => {
@@ -279,6 +307,13 @@ export const LibraryPage = (): JSX.Element => {
                           </p>
                         ),
                       })}
+                      <p className="mt-1 text-[11px] text-stone-500">
+                        Créée le {formatIsoDate(r.createdAt)}
+                        {Option.match(r.madeAt, {
+                          onNone: () => "",
+                          onSome: (d) => ` · Faite le ${formatIsoDate(d)}`,
+                        })}
+                      </p>
                     </div>
                   </Card>
                 </Link>

@@ -17,6 +17,7 @@ import { RecipeRepository } from "../persistence/RecipeRepository.ts"
 import { TemplateRepository } from "../persistence/TemplateRepository.ts"
 import { runPromiseExit } from "../runtime/Runtime.ts"
 import { Button, Card, FormField, PageHeader, Select, TextInput } from "../ui/primitives.tsx"
+import { formatIsoDate } from "../ui/format.ts"
 import { useEffectQuery } from "../ui/hooks.ts"
 
 export const RecipeDetailPage = (): JSX.Element => {
@@ -37,6 +38,7 @@ export const RecipeDetailPage = (): JSX.Element => {
   const [tagInput, setTagInput] = useState("")
   const [favorite, setFavorite] = useState(false)
   const [tried, setTried] = useState(false)
+  const [madeAtInput, setMadeAtInput] = useState("")
   const [saving, setSaving] = useState(false)
   const [loadedFor, setLoadedFor] = useState<string>("")
 
@@ -48,6 +50,7 @@ export const RecipeDetailPage = (): JSX.Element => {
       setTagInput(r.tags.join(", "))
       setFavorite(r.favorite)
       setTried(r.tried)
+      setMadeAtInput(Option.match(r.madeAt, { onNone: () => "", onSome: (d) => d.slice(0, 10) }))
       setLoadedFor(r.id)
     }
   }, [state, loadedFor])
@@ -69,6 +72,10 @@ export const RecipeDetailPage = (): JSX.Element => {
           favorite,
           tried,
           rating: rating === "" ? Option.none() : Option.some(rating as Rating),
+          madeAt:
+            madeAtInput === ""
+              ? Option.none()
+              : Option.some(madeAtInput as Recipe["updatedAt"]),
           notes: notes.trim() === "" ? Option.none() : Option.some(notes.trim()),
           tags: tagInput
             .split(",")
@@ -158,7 +165,23 @@ export const RecipeDetailPage = (): JSX.Element => {
 
   return (
     <>
-      <PageHeader title={r.name} subtitle={`${tf} g de farine totale`} back />
+      <PageHeader
+        title={r.name}
+        subtitle={`${tf} g de farine totale · créée le ${formatIsoDate(r.createdAt)}${Option.match(
+          r.madeAt,
+          { onNone: () => "", onSome: (d) => ` · faite le ${formatIsoDate(d)}` },
+        )}`}
+        back
+      />
+
+      <div className="mb-3 flex justify-end">
+        <Button
+          variant="secondary"
+          onClick={() => navigate({ to: "/direct", search: { from: r.id } })}
+        >
+          🍴 Dériver une variante
+        </Button>
+      </div>
 
       <Card className="mb-3 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
@@ -338,11 +361,29 @@ export const RecipeDetailPage = (): JSX.Element => {
           <input
             type="checkbox"
             checked={tried}
-            onChange={(e) => setTried(e.target.checked)}
+            onChange={(e) => {
+              setTried(e.target.checked)
+              // Checking pre-fills today; unchecking clears the made-on date.
+              if (e.target.checked && madeAtInput === "") {
+                setMadeAtInput(new Date().toISOString().slice(0, 10))
+              }
+              if (!e.target.checked) setMadeAtInput("")
+            }}
             className="w-5 h-5"
           />
           <span>Je l'ai essayée 🍕</span>
         </label>
+
+        {tried ? (
+          <FormField label="Faite le">
+            <input
+              type="date"
+              value={madeAtInput}
+              onChange={(e) => setMadeAtInput(e.target.value)}
+              className="block w-full min-w-0 rounded-lg border border-dough-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-tomato-500/40 focus:border-tomato-500 min-h-[44px]"
+            />
+          </FormField>
+        ) : null}
 
         <label className="flex items-center gap-2 text-sm">
           <input

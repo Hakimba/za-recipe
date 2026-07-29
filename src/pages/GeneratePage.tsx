@@ -216,6 +216,7 @@ export const GeneratePage = (): JSX.Element => {
           favorite: false,
           tried: false,
           rating: Option.none(),
+          madeAt: Option.none(),
           notes: Option.none(),
           createdAt: now,
           updatedAt: now,

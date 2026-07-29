@@ -109,6 +109,18 @@ describe("legacy decode — Recipe", () => {
     expect(r.sourceTemplate.value.name).toBe("Napoletana 65%")
   })
 
+  it("defaults `madeAt` to None for legacy records (key absent)", () => {
+    const r = decodeRecipe(legacyRecipeJson)
+    expect(Option.isNone(r.madeAt)).toBe(true)
+  })
+
+  it("decodes a present madeAt to Some", () => {
+    const r = decodeRecipe({ ...legacyRecipeJson, madeAt: "2026-07-14T18:00:00.000Z" })
+    expect(Option.isSome(r.madeAt)).toBe(true)
+    if (Option.isNone(r.madeAt)) return
+    expect(r.madeAt.value).toBe("2026-07-14T18:00:00.000Z")
+  })
+
   it("leaves a modern recipe untouched", () => {
     const modern = {
       ...legacyRecipeJson,

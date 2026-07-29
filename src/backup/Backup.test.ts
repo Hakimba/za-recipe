@@ -37,6 +37,7 @@ const sampleRecipe = (id: string, name: string): Recipe => ({
   favorite: true,
   tried: false,
   rating: Option.none(),
+  madeAt: Option.some("2026-06-15T18:00:00.000Z" as Iso8601),
   notes: Option.none(),
   createdAt: "2026-05-28T10:00:00.000Z" as Iso8601,
   updatedAt: "2026-05-28T10:00:00.000Z" as Iso8601,
@@ -83,6 +84,7 @@ describe("Backup round-trip", () => {
       const restored = yield* recipeRepo.list
       expect(restored).toHaveLength(2)
       expect(restored.map((r) => r.name).sort()).toEqual(["Pizza A", "Pizza B"])
+      expect(restored.every((r) => Option.isSome(r.madeAt))).toBe(true)
     })
 
     const exit = await Effect.runPromiseExit(program.pipe(Effect.provide(Repos)))
@@ -165,6 +167,14 @@ describe("Backup tag reconciliation on import", () => {
       [encodedTemplate(["napoletana", "biga"])],
     )
     expect(backup.recipes[0]!.tags).toEqual(["napoletana", "biga"])
+  })
+
+  it("imports an old backup without madeAt (decodes to None)", async () => {
+    const backup = await parse(
+      [encodedRecipe("22222222-2222-4222-8222-222222222222", [], undefined)],
+      [],
+    )
+    expect(Option.isNone(backup.recipes[0]!.madeAt)).toBe(true)
   })
 
   it("leaves a recipe without a source template untouched", async () => {

@@ -46,6 +46,9 @@ const directRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/direct",
   component: DirectEntryPage,
+  // `from` = recipe id to derive a variant from (prefills the form).
+  validateSearch: (search: Record<string, unknown>): { from?: string } =>
+    typeof search["from"] === "string" ? { from: search["from"] } : {},
 })
 
 const templatesRoute = createRoute({
