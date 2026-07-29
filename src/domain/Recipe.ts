@@ -28,6 +28,8 @@ export const Recipe = Schema.Struct({
   favorite: Schema.Boolean,
   tried: Schema.optionalWith(Schema.Boolean, { default: () => false, nullable: true }),
   rating: Schema.OptionFromNullishOr(Rating, null),
+  // Date the recipe was actually baked/rated — distinct from createdAt.
+  madeAt: Schema.optionalWith(Iso8601, { as: "Option", nullable: true }),
   notes: Schema.OptionFromNullishOr(Schema.String, null),
   createdAt: Iso8601,
   updatedAt: Iso8601,

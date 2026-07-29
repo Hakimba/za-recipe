@@ -29,6 +29,7 @@ const sampleRecipe = (id: string): Recipe => ({
   favorite: false,
   tried: false,
   rating: Option.none(),
+  madeAt: Option.none(),
   notes: Option.none(),
   createdAt: "2026-05-28T10:00:00.000Z" as Iso8601,
   updatedAt: "2026-05-28T10:00:00.000Z" as Iso8601,

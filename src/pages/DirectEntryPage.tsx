@@ -1,8 +1,9 @@
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { Effect, Either, Exit, Option } from "effect"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { Iso8601, PositiveNumber, RecipeId, Tag } from "../domain/Brands.ts"
 import type { FlourComponent, NamedIngredient } from "../domain/Ingredient.ts"
+import { PrefermentTypeLabel } from "../domain/Preferment.ts"
 import type { Recipe } from "../domain/Recipe.ts"
 import { makeRecipeId, nowIso } from "../persistence/Id.ts"
 import { RecipeRepository } from "../persistence/RecipeRepository.ts"
@@ -19,8 +20,10 @@ import {
   draftToRecipeYeast,
   emptyManualDraft,
   FermentationProtocolEditor,
+  recipeYeastToDraft,
   type YeastDraft,
 } from "../ui/FermentationProtocolEditor.tsx"
+import { useEffectQuery } from "../ui/hooks.ts"
 
 type FlourRow = { name: string; grams: number | "" }
 type ExtraRow = { name: string; grams: number | "" }
@@ -37,6 +40,9 @@ type State = {
   notes: string
   tags: string
   favorite: boolean
+  // Carried through when deriving a variant; not editable here.
+  preferment: Recipe["preferment"]
+  sourceTemplate: Recipe["sourceTemplate"]
 }
 
 const initial: State = {
@@ -51,16 +57,61 @@ const initial: State = {
   notes: "",
   tags: "",
   favorite: false,
+  preferment: Option.none(),
+  sourceTemplate: Option.none(),
 }
 
 const pos = (n: number | ""): Option.Option<PositiveNumber> =>
   n === "" || n <= 0 ? Option.none() : Option.some(n as PositiveNumber)
 
+const optNum = (o: Option.Option<PositiveNumber>): number | "" =>
+  Option.match(o, { onNone: () => "" as const, onSome: (v) => v as number })
+
+// A derived variant copies the dough (incl. preferment spec and template link,
+// which are both scale-free) but starts a fresh evaluation.
+const stateFromRecipe = (r: Recipe): State => ({
+  name: `${r.name} (variante)`,
+  flours: r.flours.map((f) => ({ name: f.name, grams: f.grams as number })),
+  water: r.water as number,
+  yeast: recipeYeastToDraft(r.yeast),
+  salt: optNum(r.salt),
+  sugar: optNum(r.sugar),
+  oliveOil: optNum(r.oliveOil),
+  extras: r.extras.map((e) => ({ name: e.name, grams: e.grams as number })),
+  notes: "",
+  tags: r.tags.join(", "),
+  favorite: false,
+  preferment: r.preferment,
+  sourceTemplate: r.sourceTemplate,
+})
+
 export const DirectEntryPage = (): JSX.Element => {
   const navigate = useNavigate()
+  const { from } = useSearch({ from: "/direct" })
   const [s, setS] = useState<State>(initial)
   const [err, setErr] = useState("")
   const [saving, setSaving] = useState(false)
+  const [prefilledFrom, setPrefilledFrom] = useState("")
+
+  const { state: sourceState } = useEffectQuery(
+    () =>
+      from === undefined
+        ? Effect.succeed(Option.none<Recipe>())
+        : Effect.flatMap(RecipeRepository, (repo) => repo.get(from as RecipeId)),
+    [from],
+  )
+
+  useEffect(() => {
+    if (
+      sourceState.status === "ready" &&
+      Option.isSome(sourceState.data) &&
+      prefilledFrom !== sourceState.data.value.id
+    ) {
+      const src = sourceState.data.value
+      setS(stateFromRecipe(src))
+      setPrefilledFrom(src.id)
+    }
+  }, [sourceState, prefilledFrom])
 
   const totalFlour = s.flours.reduce((sum, f) => sum + (f.grams === "" ? 0 : f.grams), 0)
 
@@ -102,8 +153,8 @@ export const DirectEntryPage = (): JSX.Element => {
                 grams: e.grams as PositiveNumber,
               }),
             ),
-          preferment: Option.none(),
-          sourceTemplate: Option.none(),
+          preferment: s.preferment,
+          sourceTemplate: s.sourceTemplate,
           tags: s.tags
             .split(",")
             .map((t) => t.trim())
@@ -111,6 +162,7 @@ export const DirectEntryPage = (): JSX.Element => {
           favorite: s.favorite,
           tried: false,
           rating: Option.none(),
+          madeAt: Option.none(),
           notes: s.notes.trim() === "" ? Option.none() : Option.some(s.notes.trim()),
           createdAt: now,
           updatedAt: now,
@@ -125,9 +177,42 @@ export const DirectEntryPage = (): JSX.Element => {
 
   return (
     <>
-      <PageHeader title="Saisie directe" subtitle="Recette en grammes" back />
+      <PageHeader
+        title="Saisie directe"
+        subtitle={prefilledFrom !== "" ? "Variante d'une recette existante" : "Recette en grammes"}
+        back
+      />
 
       <Card className="flex flex-col gap-4">
+        {Option.isSome(s.sourceTemplate) || Option.isSome(s.preferment) ? (
+          <div className="rounded-lg bg-dough-100 p-3 text-xs text-stone-700 flex flex-col gap-1">
+            {Option.match(s.sourceTemplate, {
+              onNone: () => null,
+              onSome: (t) => <p>📐 Template hérité : {t.name}</p>,
+            })}
+            {Option.match(s.preferment, {
+              onNone: () => null,
+              onSome: (p) => (
+                <p className="flex items-center justify-between gap-2">
+                  <span>
+                    Préferment hérité : {PrefermentTypeLabel[p.type]} · {p.flourPct}% farine
+                    {p.yeast._tag === "Manual"
+                      ? ` · ${p.yeast.yeastPctOfTotalYeast}% levure`
+                      : " · protocole"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setS({ ...s, preferment: Option.none() })}
+                    className="shrink-0 underline text-tomato-700"
+                  >
+                    Retirer
+                  </button>
+                </p>
+              ),
+            })}
+          </div>
+        ) : null}
+
         <FormField label="Nom">
           <TextInput
             value={s.name}
